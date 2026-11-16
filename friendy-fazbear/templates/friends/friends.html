@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Crew & Leaderboard | Friendy Fazbear{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h1>FAZBEAR CREW & LEADERBOARD</h1>
+    <p style="color: var(--muted);">Connect with arcade friends and track top win rankings.</p>
+</div>
+{% for message in messages %}<p style="color: var(--accent); margin-bottom: 1rem;">{{ message }}</p>{% endfor %}
+<div class="grid-2">
+    <div class="card">
+        <h3 style="margin-bottom: 1rem;">Add Arcade Friend</h3>
+        <form method="POST">
+            {% csrf_token %}
+            <label>Player Username</label>
+            <input type="text" name="username" placeholder="Enter friend's username" required>
+            <button type="submit" class="btn" style="width: 100%;">Send Crew Invite</button>
+        </form>
+        <h4 style="margin: 1.5rem 0 0.75rem;">Your Crew</h4>
+        {% for f in friendships %}
+        <div class="stat-row">
+            <span>{{ f.addressee.username }}</span>
+            <span class="badge">{{ f.status|title }}</span>
+        </div>
+        {% empty %}
+        <p style="color: var(--muted); font-size: 0.9rem;">No crew members added yet.</p>
+        {% endfor %}
+    </div>
+    <div class="card">
+        <h3 style="margin-bottom: 1rem;">Top Arcade Players</h3>
+        {% for p in leaderboard %}
+        <div class="stat-row">
+            <span><strong>#{{ forloop.counter }} {{ p.display_name|default:p.user.username }}</strong> <span style="color: var(--muted);">({{ p.gamer_tag }})</span></span>
+            <span class="badge">{{ p.wins }} Wins / {{ p.games_played }} Matches</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

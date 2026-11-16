@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Arcade Match Arena | Friendy Fazbear{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom: 1.5rem;">
+    <span class="badge">LIVE ARCADE SESSION</span>
+    <h1 style="margin-top: 0.5rem;">{{ game.name|default:"Fazbear Frenzy" }}</h1>
+    <p style="color: var(--muted);">{{ game.genre }} • Room #{{ room.room_code|default:"8194" }}</p>
+</div>
+<div class="grid-2">
+    <div class="card" style="text-align: center;">
+        <h3 style="margin-bottom: 1rem;">Canvas 2D Match Simulator</h3>
+        <div style="background: #090b0e; border: 1px dashed var(--accent); border-radius: 10px; padding: 3rem 1rem; margin-bottom: 1.25rem;">
+            <p style="font-size: 1.25rem; color: var(--accent); font-weight: 700;">[ WebSocket Controller Ready ]</p>
+            <p style="color: var(--muted); font-size: 0.88rem; margin-top: 0.5rem;">Record a completed round score to update MatchScore & Profile stats.</p>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <label>Simulated Round Score</label>
+            <input type="number" name="score" value="850" min="100" max="9999">
+            <button type="submit" class="btn" style="width: 100%;">Complete Match & Record Score</button>
+        </form>
+    </div>
+    <div class="card">
+        <h3 style="margin-bottom: 1rem;">Recent Match History</h3>
+        {% for entry in recent_matches %}
+        <div class="stat-row">
+            <span><strong>{{ entry.match.game.name }}</strong> (Rank #{{ entry.rank_placement }})</span>
+            <span class="badge">{{ entry.score }} pts</span>
+        </div>
+        {% empty %}
+        <p style="color: var(--muted);">No matches recorded yet. Complete a match to log your first score!</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
