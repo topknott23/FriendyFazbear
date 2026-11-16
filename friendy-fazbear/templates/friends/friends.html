@@ -1,38 +1,79 @@
 {% extends 'base.html' %}
 {% block title %}Crew & Leaderboard | Friendy Fazbear{% endblock %}
 {% block content %}
-<div class="card" style="margin-bottom: 1.5rem;">
-    <h1>FAZBEAR CREW & LEADERBOARD</h1>
-    <p style="color: var(--muted);">Connect with arcade friends and track top win rankings.</p>
+
+<!-- Page Hero -->
+<div class="page-hero">
+    <span class="badge">👥 Social Hub</span>
+    <h1 style="margin-top: 0.65rem;">Fazbear Crew & Leaderboard</h1>
+    <p>Connect with arcade friends and track the top players.</p>
 </div>
-{% for message in messages %}<p style="color: var(--accent); margin-bottom: 1rem;">{{ message }}</p>{% endfor %}
+
+{% for message in messages %}
+    <div class="message {{ message.tags }}" style="margin-bottom: 1rem;">
+        {% if message.tags == 'success' %}✅{% else %}⚠️{% endif %} {{ message }}
+    </div>
+{% endfor %}
+
 <div class="grid-2">
+    <!-- Add Friend & Crew List -->
     <div class="card">
-        <h3 style="margin-bottom: 1rem;">Add Arcade Friend</h3>
+        <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            ➕ Add Arcade Friend
+        </h3>
         <form method="POST">
             {% csrf_token %}
             <label>Player Username</label>
             <input type="text" name="username" placeholder="Enter friend's username" required>
-            <button type="submit" class="btn" style="width: 100%;">Send Crew Invite</button>
+            <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">
+                📨 Send Crew Invite
+            </button>
         </form>
-        <h4 style="margin: 1.5rem 0 0.75rem;">Your Crew</h4>
-        {% for f in friendships %}
-        <div class="stat-row">
-            <span>{{ f.addressee.username }}</span>
-            <span class="badge">{{ f.status|title }}</span>
+
+        <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                🤝 Your Crew
+            </h3>
+            {% for f in friendships %}
+            <div class="stat-row">
+                <div>
+                    <span style="font-weight: 600;">{{ f.addressee.username }}</span>
+                </div>
+                <span class="badge{% if f.status == 'accepted' %} badge-success{% elif f.status == 'pending' %} badge-gold{% endif %}">
+                    {{ f.status|title }}
+                </span>
+            </div>
+            {% empty %}
+            <div style="text-align: center; padding: 1.5rem 0;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🫂</div>
+                <p style="color: var(--muted); font-size: 0.88rem;">No crew members yet. Add a friend above!</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="card">
+        <h3 style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+            🏆 Top Arcade Players
+        </h3>
+        {% for p in leaderboard %}
+        <div class="lb-row">
+            <div class="lb-rank{% if forloop.counter == 1 %} top-1{% elif forloop.counter == 2 %} top-2{% elif forloop.counter == 3 %} top-3{% endif %}">
+                {% if forloop.counter == 1 %}👑{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}
+            </div>
+            <div class="lb-info">
+                <div class="lb-name">{{ p.display_name|default:p.user.username }}</div>
+                <div class="lb-tag">{{ p.gamer_tag }}</div>
+            </div>
+            <span class="badge">{{ p.wins }}W / {{ p.games_played }}M</span>
         </div>
         {% empty %}
-        <p style="color: var(--muted); font-size: 0.9rem;">No crew members added yet.</p>
-        {% endfor %}
-    </div>
-    <div class="card">
-        <h3 style="margin-bottom: 1rem;">Top Arcade Players</h3>
-        {% for p in leaderboard %}
-        <div class="stat-row">
-            <span><strong>#{{ forloop.counter }} {{ p.display_name|default:p.user.username }}</strong> <span style="color: var(--muted);">({{ p.gamer_tag }})</span></span>
-            <span class="badge">{{ p.wins }} Wins / {{ p.games_played }} Matches</span>
+        <div style="text-align: center; padding: 2rem 0;">
+            <p style="color: var(--muted);">No matches played yet. Be the first!</p>
         </div>
         {% endfor %}
     </div>
 </div>
+
 {% endblock %}

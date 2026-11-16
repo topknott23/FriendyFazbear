@@ -1,51 +1,86 @@
 {% extends 'base.html' %}
 {% block title %}Multiplayer Lobby | Friendy Fazbear{% endblock %}
 {% block content %}
-<div class="card" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+
+<!-- Hero Banner -->
+<div class="card" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <div>
-        <span class="badge">MULTIPLAYER LOBBY</span>
-        <h1 style="margin-top: 0.5rem;">Welcome back, {{ user.profile.display_name|default:user.username }}!</h1>
-        <p style="color: var(--muted); font-size: 0.92rem;">Local multiplayer console and arcade arena. Host: {{ user.username }} {{ user.profile.gamer_tag }}</p>
+        <span class="badge">🟢 Multiplayer Lobby</span>
+        <h1 style="margin-top: 0.65rem;">Welcome back, {{ user.profile.display_name|default:user.username }}!</h1>
+        <p style="color: var(--muted); font-size: 0.92rem; margin-top: 0.25rem;">
+            Local multiplayer console &amp; arcade arena &nbsp;·&nbsp;
+            <span style="color: var(--text-secondary);">Host: {{ user.username }}</span>
+            <span class="badge badge-purple" style="margin-left: 0.35rem;">{{ user.profile.gamer_tag }}</span>
+        </p>
     </div>
     <form method="POST">
         {% csrf_token %}
-        <button type="submit" class="btn btn-secondary">Generate New Room Code</button>
+        <button type="submit" class="btn btn-secondary">🔄 New Room Code</button>
     </form>
 </div>
 
+<!-- Room Code & Players -->
 <div class="grid-2" style="margin-bottom: 2rem;">
     <div class="card" style="text-align: center;">
-        <p style="color: var(--muted); font-size: 0.85rem; letter-spacing: 0.1rem;">ACTIVE ROOM CODE</p>
+        <p style="color: var(--muted); font-size: 0.78rem; letter-spacing: 0.1rem; text-transform: uppercase; font-weight: 600;">Active Room Code</p>
         <div class="room-code">{{ room.room_code }}</div>
-        <p style="color: var(--muted); font-size: 0.85rem;">Share this code with local mobile controllers to join</p>
+        <p style="color: var(--muted); font-size: 0.82rem;">Share this code with friends to join your lobby</p>
     </div>
+
     <div class="card">
-        <h3 style="margin-bottom: 1rem;">Connected Players (Max {{ room.max_players }})</h3>
+        <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            👥 Connected Players
+            <span class="badge" style="font-size: 0.65rem;">Max {{ room.max_players }}</span>
+        </h3>
         {% for p in players %}
-        <div class="stat-row">
-            <span><strong>P{{ p.slot_number }}:</strong> {{ p.player_alias }} {% if p.slot_number == 1 %}(Host){% endif %}</span>
-            <span class="badge">Ready</span>
+        <div class="player-slot">
+            <div class="slot-number">P{{ p.slot_number }}</div>
+            <div class="slot-info">
+                <div class="slot-name">{{ p.player_alias }}</div>
+                <div class="slot-meta">{% if p.slot_number == 1 %}Host · {% endif %}{{ p.device_identifier }}</div>
+            </div>
+            <span class="badge badge-success">Ready</span>
         </div>
         {% endfor %}
-        <div class="stat-row" style="color: var(--muted);">
-            <span>Slots 2–4</span>
-            <span>Waiting for controller...</span>
+        {% with filled=players.count %}
+        {% if filled < 2 %}
+        <div class="player-slot">
+            <div class="slot-number empty">P2</div>
+            <div class="slot-info"><div class="slot-name" style="color:var(--muted);">Empty Slot</div><div class="slot-meta">Waiting for controller...</div></div>
         </div>
+        {% endif %}
+        {% if filled < 3 %}
+        <div class="player-slot">
+            <div class="slot-number empty">P3</div>
+            <div class="slot-info"><div class="slot-name" style="color:var(--muted);">Empty Slot</div><div class="slot-meta">Waiting for controller...</div></div>
+        </div>
+        {% endif %}
+        {% if filled < 4 %}
+        <div class="player-slot">
+            <div class="slot-number empty">P4</div>
+            <div class="slot-info"><div class="slot-name" style="color:var(--muted);">Empty Slot</div><div class="slot-meta">Waiting for controller...</div></div>
+        </div>
+        {% endif %}
+        {% endwith %}
     </div>
 </div>
 
-<h2 style="margin-bottom: 1rem;">Arcade Mini-Games</h2>
+<!-- Mini-Games -->
+<h2 class="section-title">🎮 Arcade Mini-Games</h2>
 <div class="grid-4">
     {% for game in games %}
-    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+    <div class="card game-card">
         <div>
-            <span class="badge">{{ game.badge }}</span>
-            <h3 style="margin: 0.75rem 0 0.25rem;">{{ game.name }}</h3>
-            <p style="color: var(--accent); font-size: 0.82rem; margin-bottom: 0.75rem;">{{ game.genre }} • {{ game.min_players }}-{{ game.max_players }} Players</p>
-            <p style="color: var(--muted); font-size: 0.88rem; margin-bottom: 1.25rem;">{{ game.description }}</p>
+            <span class="badge{% if game.badge == 'New Release' %} badge-purple{% elif game.badge == 'Featured' %} badge-gold{% endif %}">{{ game.badge }}</span>
+            <h3 style="margin: 0.75rem 0 0.15rem;">{{ game.name }}</h3>
+            <div class="game-genre">{{ game.genre }} · {{ game.min_players }}-{{ game.max_players }} Players</div>
+            <p class="game-desc">{{ game.description }}</p>
         </div>
-        <a href="{% url 'arena' %}?game={{ game.game_id }}" class="btn">Launch Game</a>
+        <a href="{% url 'arena' %}?game={{ game.game_id }}" class="btn" style="width: 100%; text-align: center;">
+            ▶ Launch
+        </a>
     </div>
     {% endfor %}
 </div>
+
 {% endblock %}

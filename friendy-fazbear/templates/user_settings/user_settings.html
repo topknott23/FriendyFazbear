@@ -1,38 +1,75 @@
 {% extends 'base.html' %}
 {% block title %}Console Settings | Friendy Fazbear{% endblock %}
 {% block content %}
-<div class="card" style="margin-bottom: 1.5rem;">
-    <h1>GAME & CONSOLE SETTINGS</h1>
-    <p style="color: var(--muted);">Configure audio levels, display theme, privacy, and lobby preferences.</p>
+
+<!-- Page Hero -->
+<div class="page-hero">
+    <span class="badge">⚙️ Configuration</span>
+    <h1 style="margin-top: 0.65rem;">Console Settings</h1>
+    <p>Configure audio, display theme, privacy, and lobby preferences.</p>
 </div>
-{% for message in messages %}<p style="color: var(--accent); margin-bottom: 1rem;">{{ message }}</p>{% endfor %}
+
+{% for message in messages %}
+    <div class="message success" style="margin-bottom: 1rem;">✅ {{ message }}</div>
+{% endfor %}
+
 <form method="POST" class="card">
     {% csrf_token %}
-    <h3 style="margin-bottom: 1rem;">Audio & Sound Effects</h3>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-        <div><label>Master Volume ({{ settings.master_volume }}%)</label><input type="range" name="master_volume" min="0" max="100" value="{{ settings.master_volume }}"></div>
-        <div><label>SFX Volume ({{ settings.sfx_volume }}%)</label><input type="range" name="sfx_volume" min="0" max="100" value="{{ settings.sfx_volume }}"></div>
-        <div><label>Music Volume ({{ settings.music_volume }}%)</label><input type="range" name="music_volume" min="0" max="100" value="{{ settings.music_volume }}"></div>
-    </div>
-    <h3 style="margin-bottom: 1rem;">Theme & Lobby Privacy</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-        <div>
-            <label>Console Theme</label>
-            <select name="theme">
-                {% for val, label in settings.THEME_CHOICES %}
-                <option value="{{ val }}" {% if settings.theme == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
+
+    <!-- Audio Section -->
+    <div class="settings-section">
+        <h3>🔊 Audio & Sound Effects</h3>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+            <div class="volume-group">
+                <label>
+                    Master Volume
+                    <span class="volume-value">{{ settings.master_volume }}%</span>
+                </label>
+                <input type="range" name="master_volume" min="0" max="100" value="{{ settings.master_volume }}">
+            </div>
+            <div class="volume-group">
+                <label>
+                    SFX Volume
+                    <span class="volume-value">{{ settings.sfx_volume }}%</span>
+                </label>
+                <input type="range" name="sfx_volume" min="0" max="100" value="{{ settings.sfx_volume }}">
+            </div>
+            <div class="volume-group">
+                <label>
+                    Music Volume
+                    <span class="volume-value">{{ settings.music_volume }}%</span>
+                </label>
+                <input type="range" name="music_volume" min="0" max="100" value="{{ settings.music_volume }}">
+            </div>
         </div>
-        <div>
-            <label>Lobby Privacy</label>
-            <select name="lobby_privacy">
-                {% for val, label in settings.PRIVACY_CHOICES %}
-                <option value="{{ val }}" {% if settings.lobby_privacy == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
+    </div>
+
+    <!-- Theme & Privacy -->
+    <div class="settings-section">
+        <h3>🎨 Theme & Lobby Privacy</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div>
+                <label>Console Theme</label>
+                <select name="theme">
+                    {% for val, label in settings.THEME_CHOICES %}
+                    <option value="{{ val }}" {% if settings.theme == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Lobby Privacy</label>
+                <select name="lobby_privacy">
+                    {% for val, label in settings.PRIVACY_CHOICES %}
+                    <option value="{{ val }}" {% if settings.lobby_privacy == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
     </div>
-    <button type="submit" class="btn" style="margin-top: 1rem;">Save Settings</button>
+
+    <button type="submit" class="btn" style="margin-top: 0.5rem;">
+        💾 Save Settings
+    </button>
 </form>
+
 {% endblock %}

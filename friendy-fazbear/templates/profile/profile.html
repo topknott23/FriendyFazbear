@@ -1,33 +1,73 @@
 {% extends 'base.html' %}
 {% block title %}Player Profile | Friendy Fazbear{% endblock %}
 {% block content %}
-<div class="card" style="margin-bottom: 1.5rem;">
-    <h1>PLAYER PROFILE</h1>
-    <p style="color: var(--muted);">Manage your account identity, bio, and avatar.</p>
+
+<!-- Page Hero -->
+<div class="page-hero">
+    <span class="badge badge-purple">👤 Player Profile</span>
+    <h1 style="margin-top: 0.65rem;">Your Identity</h1>
+    <p>Manage your account info, avatar, bio, and track your stats.</p>
 </div>
-{% for message in messages %}<p style="color: var(--accent); margin-bottom: 1rem;">{{ message }}</p>{% endfor %}
+
+{% for message in messages %}
+    <div class="message success" style="margin-bottom: 1rem;">✅ {{ message }}</div>
+{% endfor %}
+
 <div class="grid-2">
+    <!-- Profile Card -->
     <div class="card" style="text-align: center;">
-        <div style="width: 72px; height: 72px; border-radius: 50%; background: #22262e; border: 2px solid var(--accent); margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; font-size: 1.75rem;">🐻</div>
+        <div class="avatar-circle">
+            {% if profile.avatar == 'freddy' %}🐻
+            {% elif profile.avatar == 'bonnie' %}🐰
+            {% elif profile.avatar == 'chica' %}🐥
+            {% elif profile.avatar == 'foxy' %}🦊
+            {% elif profile.avatar == 'golden_freddy' %}✨
+            {% elif profile.avatar == 'puppet' %}🎭
+            {% else %}🐻
+            {% endif %}
+        </div>
         <h2>{{ profile.display_name|default:user.username }}</h2>
-        <span class="badge" style="margin: 0.5rem 0;">{{ profile.gamer_tag }}</span>
-        <p style="color: var(--muted); font-size: 0.85rem; margin: 0.75rem 0;">{{ profile.bio }}</p>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-            <div><strong>{{ profile.games_played }}</strong><br><span style="color: var(--muted); font-size: 0.75rem;">MATCHES</span></div>
-            <div><strong>{{ profile.wins }}</strong><br><span style="color: var(--muted); font-size: 0.75rem;">VICTORIES</span></div>
-            <div><strong>{{ win_rate }}%</strong><br><span style="color: var(--muted); font-size: 0.75rem;">WIN RATE</span></div>
+        <span class="badge" style="margin: 0.65rem 0;">{{ profile.gamer_tag }}</span>
+        <p style="color: var(--muted); font-size: 0.88rem; margin: 0.75rem 0; line-height: 1.6;">{{ profile.bio }}</p>
+
+        <div class="stats-mini">
+            <div>
+                <div class="stat-value">{{ profile.games_played }}</div>
+                <div class="stat-label">Matches</div>
+            </div>
+            <div>
+                <div class="stat-value">{{ profile.wins }}</div>
+                <div class="stat-label">Victories</div>
+            </div>
+            <div>
+                <div class="stat-value">{{ win_rate }}%</div>
+                <div class="stat-label">Win Rate</div>
+            </div>
         </div>
     </div>
+
+    <!-- Edit Form -->
     <div class="card">
-        <h3 style="margin-bottom: 1rem;">Edit Profile</h3>
+        <h3 style="margin-bottom: 0.5rem;">✏️ Edit Profile</h3>
         <form method="POST">
             {% csrf_token %}
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div><label>First Name</label><input type="text" name="first_name" value="{{ user.first_name }}"></div>
-                <div><label>Last Name</label><input type="text" name="last_name" value="{{ user.last_name }}"></div>
+                <div>
+                    <label>First Name</label>
+                    <input type="text" name="first_name" value="{{ user.first_name }}" placeholder="First name">
+                </div>
+                <div>
+                    <label>Last Name</label>
+                    <input type="text" name="last_name" value="{{ user.last_name }}" placeholder="Last name">
+                </div>
             </div>
-            <label>Email Address</label><input type="email" name="email" value="{{ user.email }}">
-            <label>Display Name</label><input type="text" name="display_name" value="{{ profile.display_name }}">
+
+            <label>Email Address</label>
+            <input type="email" name="email" value="{{ user.email }}" placeholder="email@example.com">
+
+            <label>Display Name</label>
+            <input type="text" name="display_name" value="{{ profile.display_name }}" placeholder="Your display name">
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                 <div>
                     <label>Avatar</label>
@@ -37,11 +77,20 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div><label>Favorite Game</label><input type="text" name="favorite_game" value="{{ profile.favorite_game }}"></div>
+                <div>
+                    <label>Favorite Game</label>
+                    <input type="text" name="favorite_game" value="{{ profile.favorite_game }}">
+                </div>
             </div>
-            <label>Bio</label><textarea name="bio" rows="3">{{ profile.bio }}</textarea>
-            <button type="submit" class="btn" style="width: 100%;">Save Changes</button>
+
+            <label>Bio</label>
+            <textarea name="bio" rows="3" placeholder="Tell us about yourself...">{{ profile.bio }}</textarea>
+
+            <button type="submit" class="btn" style="width: 100%; margin-top: 1.25rem;">
+                💾 Save Changes
+            </button>
         </form>
     </div>
 </div>
+
 {% endblock %}
