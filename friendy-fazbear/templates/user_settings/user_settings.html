@@ -2,74 +2,136 @@
 {% block title %}Console Settings | Friendy Fazbear{% endblock %}
 {% block content %}
 
-<!-- Page Hero -->
-<div class="page-hero">
-    <span class="badge">⚙️ Configuration</span>
-    <h1 style="margin-top: 0.65rem;">Console Settings</h1>
-    <p>Configure audio, display theme, privacy, and lobby preferences.</p>
-</div>
-
-{% for message in messages %}
-    <div class="message success" style="margin-bottom: 1rem;">✅ {{ message }}</div>
-{% endfor %}
+<section class="card hero-strip">
+    <div>
+        <span class="badge">System Preferences</span>
+        <h1>Game &amp; Console Settings</h1>
+        <p style="color: var(--text-soft); font-size: 0.9rem;">Adjust audio mixer levels, live-switch your console theme, and manage privacy.</p>
+    </div>
+</section>
 
 <form method="POST" class="card">
     {% csrf_token %}
 
-    <!-- Audio Section -->
-    <div class="settings-section">
-        <h3>🔊 Audio & Sound Effects</h3>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
-            <div class="volume-group">
-                <label>
-                    Master Volume
-                    <span class="volume-value">{{ settings.master_volume }}%</span>
-                </label>
-                <input type="range" name="master_volume" min="0" max="100" value="{{ settings.master_volume }}">
+    <div class="card-header-row">
+        <h3>Audio Mixer</h3>
+        <button type="button" id="resetAudioBtn" class="btn btn-secondary btn-sm">Reset Audio</button>
+    </div>
+
+    <div class="grid-3" style="margin-bottom: 1.75rem;">
+        <div class="slider-box">
+            <div class="slider-top">
+                <span>Master Volume</span>
+                <strong class="mono" id="masterVal" style="color: var(--accent);">{{ settings.master_volume }}%</strong>
             </div>
-            <div class="volume-group">
-                <label>
-                    SFX Volume
-                    <span class="volume-value">{{ settings.sfx_volume }}%</span>
-                </label>
-                <input type="range" name="sfx_volume" min="0" max="100" value="{{ settings.sfx_volume }}">
+            <input class="arcade-range" type="range" name="master_volume" min="0" max="100" value="{{ settings.master_volume }}" data-output="masterVal">
+        </div>
+        <div class="slider-box">
+            <div class="slider-top">
+                <span>SFX Volume</span>
+                <strong class="mono" id="sfxVal" style="color: var(--accent);">{{ settings.sfx_volume }}%</strong>
             </div>
-            <div class="volume-group">
-                <label>
-                    Music Volume
-                    <span class="volume-value">{{ settings.music_volume }}%</span>
-                </label>
-                <input type="range" name="music_volume" min="0" max="100" value="{{ settings.music_volume }}">
+            <input class="arcade-range" type="range" name="sfx_volume" min="0" max="100" value="{{ settings.sfx_volume }}" data-output="sfxVal">
+        </div>
+        <div class="slider-box">
+            <div class="slider-top">
+                <span>Music Volume</span>
+                <strong class="mono" id="musicVal" style="color: var(--accent);">{{ settings.music_volume }}%</strong>
             </div>
+            <input class="arcade-range" type="range" name="music_volume" min="0" max="100" value="{{ settings.music_volume }}" data-output="musicVal">
         </div>
     </div>
 
-    <!-- Theme & Privacy -->
-    <div class="settings-section">
-        <h3>🎨 Theme & Lobby Privacy</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <div>
-                <label>Console Theme</label>
-                <select name="theme">
-                    {% for val, label in settings.THEME_CHOICES %}
-                    <option value="{{ val }}" {% if settings.theme == val %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label>Lobby Privacy</label>
-                <select name="lobby_privacy">
-                    {% for val, label in settings.PRIVACY_CHOICES %}
-                    <option value="{{ val }}" {% if settings.lobby_privacy == val %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+    <div class="card-header-row">
+        <h3>Console Visual Theme</h3>
+        <span class="badge">Click to Live Preview</span>
+    </div>
+
+    <div class="theme-cards" style="margin-bottom: 1.75rem;">
+        <label class="theme-pick">
+            <input type="radio" name="theme" value="dark" {% if settings.theme == 'dark' %}checked{% endif %}>
+            <span class="theme-pick-box">
+                <span class="swatch-row">
+                    <span class="swatch-dot" style="background:#18122b;"></span>
+                    <span class="swatch-dot" style="background:#ffb020;"></span>
+                    <span class="swatch-dot" style="background:#a855f7;"></span>
+                </span>
+                <strong style="display:block; font-size:0.9rem;">Fazbear Dark</strong>
+                <span style="font-size:0.75rem; color:var(--text-soft);">Velvet plum &amp; gold</span>
+            </span>
+        </label>
+
+        <label class="theme-pick">
+            <input type="radio" name="theme" value="neon" {% if settings.theme == 'neon' %}checked{% endif %}>
+            <span class="theme-pick-box">
+                <span class="swatch-row">
+                    <span class="swatch-dot" style="background:#0d172a;"></span>
+                    <span class="swatch-dot" style="background:#00f0ff;"></span>
+                    <span class="swatch-dot" style="background:#ff2e93;"></span>
+                </span>
+                <strong style="display:block; font-size:0.9rem;">Neon Cyberpunk</strong>
+                <span style="font-size:0.75rem; color:var(--text-soft);">Electric cyan &amp; pink</span>
+            </span>
+        </label>
+
+        <label class="theme-pick">
+            <input type="radio" name="theme" value="arcade" {% if settings.theme == 'arcade' %}checked{% endif %}>
+            <span class="theme-pick-box">
+                <span class="swatch-row">
+                    <span class="swatch-dot" style="background:#211020;"></span>
+                    <span class="swatch-dot" style="background:#facc15;"></span>
+                    <span class="swatch-dot" style="background:#fb923c;"></span>
+                </span>
+                <strong style="display:block; font-size:0.9rem;">Retro 80s Arcade</strong>
+                <span style="font-size:0.75rem; color:var(--text-soft);">Warm synth &amp; amber</span>
+            </span>
+        </label>
+
+        <label class="theme-pick">
+            <input type="radio" name="theme" value="midnight" {% if settings.theme == 'midnight' %}checked{% endif %}>
+            <span class="theme-pick-box">
+                <span class="swatch-row">
+                    <span class="swatch-dot" style="background:#0b1d24;"></span>
+                    <span class="swatch-dot" style="background:#10b981;"></span>
+                    <span class="swatch-dot" style="background:#38bdf8;"></span>
+                </span>
+                <strong style="display:block; font-size:0.9rem;">Midnight Emerald</strong>
+                <span style="font-size:0.75rem; color:var(--text-soft);">Deep teal &amp; emerald</span>
+            </span>
+        </label>
+    </div>
+
+    <div class="card-header-row">
+        <h3>Lobby Privacy &amp; Notifications</h3>
+    </div>
+
+    <div class="grid-2" style="margin-bottom: 1.5rem; align-items: start;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="lobbyPrivacy">Lobby Access</label>
+            <select id="lobbyPrivacy" name="lobby_privacy">
+                {% for val, label in settings.PRIVACY_CHOICES %}
+                <option value="{{ val }}" {% if settings.lobby_privacy == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="check-row">
+                <span>Show Online Status to Crew</span>
+                <input type="checkbox" name="show_online_status" {% if settings.show_online_status %}checked{% endif %}>
+            </label>
+            <label class="check-row">
+                <span>Auto-Ready When Hosting Lobby</span>
+                <input type="checkbox" name="auto_ready" {% if settings.auto_ready %}checked{% endif %}>
+            </label>
+            <label class="check-row">
+                <span>Receive Email Notifications</span>
+                <input type="checkbox" name="email_notifications" {% if settings.email_notifications %}checked{% endif %}>
+            </label>
         </div>
     </div>
 
-    <button type="submit" class="btn" style="margin-top: 0.5rem;">
-        💾 Save Settings
-    </button>
+    <button type="submit" class="btn">Save Console Settings</button>
 </form>
 
 {% endblock %}

@@ -1,62 +1,92 @@
 {% extends 'base.html' %}
-{% block title %}Arcade Match Arena | Friendy Fazbear{% endblock %}
+{% block title %}{{ game.name|default:"Arena" }} | Friendy Fazbear{% endblock %}
 {% block content %}
 
-<!-- Arena Header -->
-<div class="card" style="margin-bottom: 1.5rem;">
-    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <span class="badge badge-danger">🔴 Live Session</span>
-        <span class="badge">Room #{{ room.room_code|default:"----" }}</span>
+<section class="card hero-strip">
+    <div>
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <span class="badge badge-rose"><span class="dot-live"></span> Live Match Arena</span>
+            <span class="badge">Room #{{ room.room_code }}</span>
+        </div>
+        <h1>{{ game.name|default:"Fazbear Frenzy" }}</h1>
+        <p style="color: var(--text-soft); font-size: 0.9rem;">{{ game.genre }} — {{ game.description }}</p>
     </div>
-    <h1 style="margin-top: 0.65rem;">{{ game.name|default:"Fazbear Frenzy" }}</h1>
-    <p style="color: var(--muted); font-size: 0.92rem;">{{ game.genre|default:"Arcade" }} · Real-time multiplayer match</p>
+    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Back to Lobby</a>
+</section>
+
+<div class="switcher-bar">
+    {% for g in all_games %}
+    <a href="{% url 'arena' %}?game={{ g.game_id }}" class="switcher-pill {% if g.game_id == game.game_id %}active{% endif %}">
+        {{ g.name }}
+    </a>
+    {% endfor %}
 </div>
 
-<div class="grid-2">
-    <!-- Game Canvas -->
-    <div class="card">
-        <h3 style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
-            🖥️ Match Simulator
-        </h3>
-
-        <div class="arena-canvas" style="margin-bottom: 1.5rem;">
-            <div class="canvas-title">[ WebSocket Controller Ready ]</div>
-            <div class="canvas-subtitle">Record a completed round score to update your stats</div>
+<div class="grid-arena">
+    <section class="card">
+        <div class="hud-grid">
+            <div class="hud-tile">
+                <span>Round Score</span>
+                <strong id="hudScore" style="color: var(--accent);">0</strong>
+            </div>
+            <div class="hud-tile">
+                <span>Timer</span>
+                <strong id="hudTimer">20.0s</strong>
+            </div>
+            <div class="hud-tile">
+                <span>Combo</span>
+                <strong id="hudCombo" style="color: #fda4af;">x1</strong>
+            </div>
+            <div class="hud-tile">
+                <span>Personal Best</span>
+                <strong>{{ high_score }}</strong>
+            </div>
         </div>
 
-        <form method="POST">
+        <div class="canvas-wrap">
+            <canvas id="arenaCanvas" data-game="{{ game.game_id|default:'fazbear_frenzy' }}"></canvas>
+            <div class="canvas-modal" id="canvasOverlay">
+                <span class="badge">Interactive 2D Arena</span>
+                <h3 id="overlayTitle">{{ game.name|default:"Fazbear Frenzy" }}</h3>
+                <p id="overlaySub">Move with mouse, touch, or WASD / Arrow keys. Collect glowing tokens and dodge red hazards for 20 seconds!</p>
+                <button type="button" id="startArcadeBtn" class="btn">Start 20s Match</button>
+            </div>
+        </div>
+
+        <form method="POST" class="score-bar">
             {% csrf_token %}
-            <label>Simulated Round Score</label>
-            <input type="number" name="score" value="850" min="100" max="9999" style="font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; text-align: center;">
-
-            <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">
-                🏆 Complete Match & Record Score
-            </button>
+            <input type="hidden" name="game_id" value="{{ game.game_id }}">
+            <div class="form-group">
+                <label for="scoreInput">Round Score</label>
+                <input id="scoreInput" class="mono" type="number" name="score" value="850" min="0" max="99999" required>
+            </div>
+            <button type="submit" class="btn">Complete Match &amp; Record Score</button>
         </form>
-    </div>
+    </section>
 
-    <!-- Match History -->
-    <div class="card">
-        <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-            📊 Recent Match History
-        </h3>
+    <aside class="card">
+        <div class="card-header-row">
+            <h3>Recent Match History</h3>
+            <span class="badge badge-muted">{{ recent_matches|length }} Logged</span>
+        </div>
 
         {% for entry in recent_matches %}
-        <div class="stat-row">
-            <div>
-                <div style="font-weight: 600;">{{ entry.match.game.name }}</div>
-                <div style="color: var(--muted); font-size: 0.8rem;">Rank #{{ entry.rank_placement }}</div>
+        <div class="list-row">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="rank-chip top-1">#{{ entry.rank_placement }}</span>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.92rem;">{{ entry.match.game.name }}</div>
+                    <div style="font-size: 0.74rem; color: var(--muted);">{{ entry.recorded_at|timesince }} ago</div>
+                </div>
             </div>
-            <span class="badge badge-gold">{{ entry.score }} pts</span>
+            <span class="badge">{{ entry.score }} pts</span>
         </div>
         {% empty %}
-        <div style="text-align: center; padding: 2.5rem 1rem;">
-            <div style="font-size: 2rem; margin-bottom: 0.75rem;">🎯</div>
-            <p style="color: var(--muted); font-size: 0.9rem;">No matches recorded yet.</p>
-            <p style="color: var(--muted); font-size: 0.82rem;">Complete a match to log your first score!</p>
-        </div>
+        <p style="color: var(--text-soft); text-align: center; padding: 2rem 0.5rem; font-size: 0.9rem;">
+            No matches recorded yet. Play a round or submit a score to log your first victory!
+        </p>
         {% endfor %}
-    </div>
+    </aside>
 </div>
 
 {% endblock %}

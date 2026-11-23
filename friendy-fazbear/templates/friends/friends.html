@@ -2,78 +2,101 @@
 {% block title %}Crew & Leaderboard | Friendy Fazbear{% endblock %}
 {% block content %}
 
-<!-- Page Hero -->
-<div class="page-hero">
-    <span class="badge">👥 Social Hub</span>
-    <h1 style="margin-top: 0.65rem;">Fazbear Crew & Leaderboard</h1>
-    <p>Connect with arcade friends and track the top players.</p>
-</div>
-
-{% for message in messages %}
-    <div class="message {{ message.tags }}" style="margin-bottom: 1rem;">
-        {% if message.tags == 'success' %}✅{% else %}⚠️{% endif %} {{ message }}
+<section class="card hero-strip">
+    <div>
+        <span class="badge">Social &amp; Rankings</span>
+        <h1>Fazbear Crew &amp; Leaderboard</h1>
+        <p style="color: var(--text-soft); font-size: 0.9rem;">Team up with arcade friends and track the top global players.</p>
     </div>
-{% endfor %}
+</section>
 
 <div class="grid-2">
-    <!-- Add Friend & Crew List -->
-    <div class="card">
-        <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-            ➕ Add Arcade Friend
-        </h3>
-        <form method="POST">
+    <section class="card">
+        <div class="card-header-row">
+            <h3>Add Arcade Friend</h3>
+            <span class="badge badge-muted">{{ friendships|length }} in Crew</span>
+        </div>
+
+        <form method="POST" style="display: flex; gap: 0.6rem; margin-bottom: 1.4rem;">
             {% csrf_token %}
-            <label>Player Username</label>
-            <input type="text" name="username" placeholder="Enter friend's username" required>
-            <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">
-                📨 Send Crew Invite
-            </button>
+            <input type="hidden" name="action" value="add">
+            <input type="text" name="username" placeholder="Enter username or #FAZ tag" required>
+            <button type="submit" class="btn">Invite</button>
         </form>
 
-        <div style="margin-top: 2rem;">
-            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                🤝 Your Crew
-            </h3>
-            {% for f in friendships %}
-            <div class="stat-row">
-                <div>
-                    <span style="font-weight: 600;">{{ f.addressee.username }}</span>
-                </div>
-                <span class="badge{% if f.status == 'accepted' %} badge-success{% elif f.status == 'pending' %} badge-gold{% endif %}">
-                    {{ f.status|title }}
-                </span>
-            </div>
-            {% empty %}
-            <div style="text-align: center; padding: 1.5rem 0;">
-                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🫂</div>
-                <p style="color: var(--muted); font-size: 0.88rem;">No crew members yet. Add a friend above!</p>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
+        <h4 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-soft); margin-bottom: 0.75rem;">
+            Your Crew Roster
+        </h4>
 
-    <!-- Leaderboard -->
-    <div class="card">
-        <h3 style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
-            🏆 Top Arcade Players
-        </h3>
-        {% for p in leaderboard %}
-        <div class="lb-row">
-            <div class="lb-rank{% if forloop.counter == 1 %} top-1{% elif forloop.counter == 2 %} top-2{% elif forloop.counter == 3 %} top-3{% endif %}">
-                {% if forloop.counter == 1 %}👑{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}
+        {% for f in friendships %}
+        <div class="list-row">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="av av-md av-{{ f.addressee.profile.avatar|default:'freddy' }}">
+                    {% if f.addressee.profile.avatar == 'bonnie' %}BB
+                    {% elif f.addressee.profile.avatar == 'chica' %}CC
+                    {% elif f.addressee.profile.avatar == 'foxy' %}FX
+                    {% elif f.addressee.profile.avatar == 'golden_freddy' %}GF
+                    {% elif f.addressee.profile.avatar == 'puppet' %}TP
+                    {% else %}FF{% endif %}
+                </span>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.93rem;">{{ f.addressee.profile.display_name|default:f.addressee.username }}</div>
+                    <div class="mono" style="font-size: 0.74rem; color: var(--muted);">@{{ f.addressee.username }} · {{ f.addressee.profile.gamer_tag|default:'#FAZ' }}</div>
+                </div>
             </div>
-            <div class="lb-info">
-                <div class="lb-name">{{ p.display_name|default:p.user.username }}</div>
-                <div class="lb-tag">{{ p.gamer_tag }}</div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="badge badge-emerald">{{ f.status|title }}</span>
+                <form method="POST" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="remove">
+                    <input type="hidden" name="friendship_id" value="{{ f.id }}">
+                    <button type="submit" class="btn btn-secondary btn-sm" title="Remove">Remove</button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <p style="color: var(--text-soft); text-align: center; padding: 1.75rem 0.5rem; font-size: 0.9rem;">
+            No crew members added yet. Invite a friend by username above!
+        </p>
+        {% endfor %}
+    </section>
+
+    <section class="card">
+        <div class="card-header-row">
+            <h3>Top Arcade Leaderboard</h3>
+            <span class="badge">Top {{ leaderboard|length }}</span>
+        </div>
+
+        {% for p in leaderboard %}
+        <div class="list-row {% if p.user_id == user.id %}highlight{% endif %}">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="rank-chip {% if forloop.counter == 1 %}top-1{% elif forloop.counter == 2 %}top-2{% elif forloop.counter == 3 %}top-3{% endif %}">
+                    #{{ forloop.counter }}
+                </span>
+                <span class="av av-{{ p.avatar|default:'freddy' }}">
+                    {% if p.avatar == 'bonnie' %}BB
+                    {% elif p.avatar == 'chica' %}CC
+                    {% elif p.avatar == 'foxy' %}FX
+                    {% elif p.avatar == 'golden_freddy' %}GF
+                    {% elif p.avatar == 'puppet' %}TP
+                    {% else %}FF{% endif %}
+                </span>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.93rem;">
+                        {{ p.display_name|default:p.user.username }}
+                        {% if p.user_id == user.id %}<span class="badge" style="margin-left: 0.35rem;">You</span>{% endif %}
+                    </div>
+                    <div class="mono" style="font-size: 0.74rem; color: var(--muted);">{{ p.gamer_tag }}</div>
+                </div>
             </div>
             <span class="badge">{{ p.wins }}W / {{ p.games_played }}M</span>
         </div>
         {% empty %}
-        <div style="text-align: center; padding: 2rem 0;">
-            <p style="color: var(--muted);">No matches played yet. Be the first!</p>
-        </div>
+        <p style="color: var(--text-soft); text-align: center; padding: 1.75rem 0.5rem;">
+            No players ranked yet.
+        </p>
         {% endfor %}
-    </div>
+    </section>
 </div>
 
 {% endblock %}

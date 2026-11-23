@@ -2,85 +2,147 @@
 {% block title %}Multiplayer Lobby | Friendy Fazbear{% endblock %}
 {% block content %}
 
-<!-- Hero Banner -->
-<div class="card" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+<!-- Hero Console Strip -->
+<section class="card hero-strip">
     <div>
-        <span class="badge">🟢 Multiplayer Lobby</span>
-        <h1 style="margin-top: 0.65rem;">Welcome back, {{ user.profile.display_name|default:user.username }}!</h1>
-        <p style="color: var(--muted); font-size: 0.92rem; margin-top: 0.25rem;">
-            Local multiplayer console &amp; arcade arena &nbsp;·&nbsp;
-            <span style="color: var(--text-secondary);">Host: {{ user.username }}</span>
-            <span class="badge badge-purple" style="margin-left: 0.35rem;">{{ user.profile.gamer_tag }}</span>
-        </p>
+        <span class="badge badge-emerald"><span class="dot-live"></span> Multiplayer Lobby Online</span>
+        <h1>Welcome back, {{ profile.display_name|default:user.username }}!</h1>
+        <div class="hero-sub">
+            <span>Host: <strong>{{ user.username }}</strong></span>
+            <span class="badge badge-purple">{{ profile.gamer_tag }}</span>
+            <span>Favorite: <strong>{{ profile.favorite_game }}</strong></span>
+        </div>
     </div>
-    <form method="POST">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-secondary">🔄 New Room Code</button>
-    </form>
-</div>
 
-<!-- Room Code & Players -->
-<div class="grid-2" style="margin-bottom: 2rem;">
-    <div class="card" style="text-align: center;">
-        <p style="color: var(--muted); font-size: 0.78rem; letter-spacing: 0.1rem; text-transform: uppercase; font-weight: 600;">Active Room Code</p>
-        <div class="room-code">{{ room.room_code }}</div>
-        <p style="color: var(--muted); font-size: 0.82rem;">Share this code with friends to join your lobby</p>
+    <div class="kpi-row">
+        <div class="kpi-box">
+            <strong>{{ profile.games_played }}</strong>
+            <span>Matches</span>
+        </div>
+        <div class="kpi-box">
+            <strong>{{ profile.wins }}</strong>
+            <span>Victories</span>
+        </div>
+        <div class="kpi-box">
+            <strong>{{ win_rate }}%</strong>
+            <span>Win Rate</span>
+        </div>
+    </div>
+</section>
+
+<!-- Room Code + Controller Slots -->
+<section class="grid-lobby">
+    <div class="card room-box">
+        <div>
+            <span class="badge">Active Room Code</span>
+            <div class="digit-row" aria-label="Room code {{ room.room_code }}">
+                {% for digit in room.room_code %}
+                <span class="digit-tile">{{ digit }}</span>
+                {% endfor %}
+            </div>
+            <p style="color: var(--text-soft); font-size: 0.86rem;">
+                Share this 4-digit room code with local players to pair their controllers.
+            </p>
+        </div>
+
+        <div class="room-btn-row">
+            <button type="button" id="copyRoomCodeBtn" class="btn btn-sm" data-code="{{ room.room_code }}">
+                <span>Copy Code</span>
+            </button>
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm">New Room Code</button>
+            </form>
+        </div>
     </div>
 
     <div class="card">
-        <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-            👥 Connected Players
-            <span class="badge" style="font-size: 0.65rem;">Max {{ room.max_players }}</span>
-        </h3>
-        {% for p in players %}
-        <div class="player-slot">
-            <div class="slot-number">P{{ p.slot_number }}</div>
-            <div class="slot-info">
-                <div class="slot-name">{{ p.player_alias }}</div>
-                <div class="slot-meta">{% if p.slot_number == 1 %}Host · {% endif %}{{ p.device_identifier }}</div>
+        <div class="card-header-row">
+            <h3>Connected Controllers</h3>
+            <span class="badge badge-muted">{{ players.count }} / {{ room.max_players }} Slots</span>
+        </div>
+
+        <div class="slots-grid">
+            {% for p in players %}
+            <div class="slot-card active">
+                <div class="slot-head">
+                    <span class="slot-pill">P{{ p.slot_number }}</span>
+                    <span class="badge badge-emerald">Ready</span>
+                </div>
+                <div>
+                    <div class="slot-name">{{ p.player_alias }}{% if p.slot_number == 1 %} (Host){% endif %}</div>
+                    <div class="slot-meta">{{ p.device_identifier }}</div>
+                </div>
             </div>
-            <span class="badge badge-success">Ready</span>
+            {% endfor %}
+
+            {% with filled=players.count %}
+            {% if filled < 2 %}
+            <div class="slot-card empty">
+                <div class="slot-head">
+                    <span class="slot-pill">P2</span>
+                    <span class="badge badge-muted">Waiting</span>
+                </div>
+                <div>
+                    <div class="slot-name" style="color: var(--muted);">Open Slot</div>
+                    <div class="slot-meta">Join with #{{ room.room_code }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if filled < 3 %}
+            <div class="slot-card empty">
+                <div class="slot-head">
+                    <span class="slot-pill">P3</span>
+                    <span class="badge badge-muted">Waiting</span>
+                </div>
+                <div>
+                    <div class="slot-name" style="color: var(--muted);">Open Slot</div>
+                    <div class="slot-meta">Join with #{{ room.room_code }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if filled < 4 %}
+            <div class="slot-card empty">
+                <div class="slot-head">
+                    <span class="slot-pill">P4</span>
+                    <span class="badge badge-muted">Waiting</span>
+                </div>
+                <div>
+                    <div class="slot-name" style="color: var(--muted);">Open Slot</div>
+                    <div class="slot-meta">Join with #{{ room.room_code }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% endwith %}
         </div>
-        {% endfor %}
-        {% with filled=players.count %}
-        {% if filled < 2 %}
-        <div class="player-slot">
-            <div class="slot-number empty">P2</div>
-            <div class="slot-info"><div class="slot-name" style="color:var(--muted);">Empty Slot</div><div class="slot-meta">Waiting for controller...</div></div>
-        </div>
-        {% endif %}
-        {% if filled < 3 %}
-        <div class="player-slot">
-            <div class="slot-number empty">P3</div>
-            <div class="slot-info"><div class="slot-name" style="color:var(--muted);">Empty Slot</div><div class="slot-meta">Waiting for controller...</div></div>
-        </div>
-        {% endif %}
-        {% if filled < 4 %}
-        <div class="player-slot">
-            <div class="slot-number empty">P4</div>
-            <div class="slot-info"><div class="slot-name" style="color:var(--muted);">Empty Slot</div><div class="slot-meta">Waiting for controller...</div></div>
-        </div>
-        {% endif %}
-        {% endwith %}
     </div>
+</section>
+
+<!-- Mini-Games Grid -->
+<div class="section-bar">
+    <h2>Arcade Mini-Games</h2>
+    <span class="badge badge-purple">{{ games.count }} Modes Available</span>
 </div>
 
-<!-- Mini-Games -->
-<h2 class="section-title">🎮 Arcade Mini-Games</h2>
-<div class="grid-4">
+<section class="grid-4">
     {% for game in games %}
-    <div class="card game-card">
-        <div>
-            <span class="badge{% if game.badge == 'New Release' %} badge-purple{% elif game.badge == 'Featured' %} badge-gold{% endif %}">{{ game.badge }}</span>
-            <h3 style="margin: 0.75rem 0 0.15rem;">{{ game.name }}</h3>
-            <div class="game-genre">{{ game.genre }} · {{ game.min_players }}-{{ game.max_players }} Players</div>
-            <p class="game-desc">{{ game.description }}</p>
+    <article class="card game-tile">
+        <div class="game-banner banner-{{ game.game_id }}">
+            <span class="game-icon-box">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+            </span>
+            <span class="badge" style="background: rgba(13, 8, 24, 0.75); color: #fff; border-color: rgba(255,255,255,0.2);">{{ game.badge }}</span>
         </div>
-        <a href="{% url 'arena' %}?game={{ game.game_id }}" class="btn" style="width: 100%; text-align: center;">
-            ▶ Launch
-        </a>
-    </div>
+        <div class="game-content">
+            <h3>{{ game.name }}</h3>
+            <div class="game-sub">{{ game.genre }} · {{ game.min_players }}–{{ game.max_players }} Players</div>
+            <p>{{ game.description }}</p>
+            <a href="{% url 'arena' %}?game={{ game.game_id }}" class="btn btn-block">Launch Arena</a>
+        </div>
+    </article>
     {% endfor %}
-</div>
+</section>
 
 {% endblock %}

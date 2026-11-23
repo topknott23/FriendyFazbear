@@ -1,34 +1,117 @@
 {% extends 'base.html' %}
-{% block title %}Sign In | Friendy Fazbear{% endblock %}
+{% block title %}Sign In — Friendy Fazbear{% endblock %}
 {% block content %}
-<div class="auth-wrapper">
-    <div class="card auth-card">
-        <div style="text-align: center; margin-bottom: 1.5rem;">
-            <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🎮</div>
-            <h2>Welcome Back</h2>
-            <p class="auth-subtitle">Sign in to your Fazbear arcade account</p>
+<div class="auth-split-stage">
+    <!-- Left Visual Artwork & Live UI Widgets Stage (Minimal words, high visual impact) -->
+    <div class="auth-art-panel">
+        <div class="auth-art-grid" aria-hidden="true"></div>
+        <div class="auth-art-glow" aria-hidden="true"></div>
+
+        <div class="auth-art-top">
+            <span class="badge"><span class="dot-live"></span> SYSTEM ONLINE</span>
+            <span class="mono" style="font-size: 0.72rem; color: var(--muted);">FAZ-OS // v2.4</span>
         </div>
 
-        {% for message in messages %}
-            <div class="auth-error">⚠️ {{ message }}</div>
-        {% endfor %}
+        <!-- Floating Visual Elements Showcase -->
+        <div class="auth-widgets-scene" aria-hidden="true">
+            <!-- Central Geometric Emblem Ring -->
+            <div class="cyber-ring">
+                <div class="cyber-ring-inner">
+                    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="7" cy="6" r="2.5"/>
+                        <circle cx="17" cy="6" r="2.5"/>
+                        <path d="M5 13a7 7 0 0 1 14 0v2a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5v-2z"/>
+                        <circle cx="9.5" cy="12.5" r="1" fill="currentColor"/>
+                        <circle cx="14.5" cy="12.5" r="1" fill="currentColor"/>
+                        <path d="M10.5 16h3"/>
+                    </svg>
+                </div>
+            </div>
 
-        <form method="POST">
-            {% csrf_token %}
-            <label>Username</label>
-            <input type="text" name="username" placeholder="Enter your username" required autofocus>
+            <!-- Floating Widget 1: Mini Room Transmitter -->
+            <div class="float-widget widget-room">
+                <div class="widget-label">ACTIVE LOBBY PIN</div>
+                <div class="widget-digits">
+                    <span>8</span><span>1</span><span>9</span><span>4</span>
+                </div>
+                <div class="widget-sub"><span class="dot-live"></span> 4 Controllers Synced</div>
+            </div>
 
-            <label>Password</label>
-            <input type="password" name="password" placeholder="Enter your password" required>
+            <!-- Floating Widget 2: Animated Telemetry Bars -->
+            <div class="float-widget widget-bars">
+                <div class="widget-row">
+                    <span class="mono" style="font-size: 0.7rem; color: var(--text-soft);">ARENA 60HZ</span>
+                    <span class="badge">LIVE</span>
+                </div>
+                <div class="eq-bars">
+                    <span style="height: 45%"></span>
+                    <span style="height: 85%"></span>
+                    <span style="height: 60%"></span>
+                    <span style="height: 100%"></span>
+                    <span style="height: 70%"></span>
+                    <span style="height: 90%"></span>
+                    <span style="height: 50%"></span>
+                    <span style="height: 80%"></span>
+                </div>
+            </div>
 
-            <button type="submit" class="btn" style="width: 100%; margin-top: 1.25rem;">
-                Sign In
-            </button>
-        </form>
+            <!-- Floating Widget 3: P1 Controller Chip -->
+            <div class="float-widget widget-controller">
+                <span class="av">P1</span>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.8rem;">HOST READY</div>
+                    <div class="mono" style="font-size: 0.68rem; color: var(--muted);">#FAZ-01</div>
+                </div>
+            </div>
+        </div>
 
-        <div class="auth-footer">
-            Don't have an account? <a href="{% url 'register' %}">Create one</a>
+        <div class="auth-art-bottom">
+            <div class="auth-big-statement">PLAY. COMPETE. DOMINATE.</div>
+            <div class="auth-bottom-tags">
+                <span>01 // COUCH CO-OP</span>
+                <span>02 // 2D ARENA</span>
+                <span>03 // GLOBAL LADDER</span>
+            </div>
         </div>
     </div>
+
+    <!-- Right Side-Docked Login Panel -->
+    <aside class="auth-side-dock">
+        <div class="auth-dock-inner">
+            <div class="auth-switcher">
+                <a href="{% url 'login' %}" class="auth-switch-link active">Sign In</a>
+                <a href="{% url 'register' %}" class="auth-switch-link">Register</a>
+            </div>
+
+            <div class="auth-dock-head">
+                <h1>Sign In</h1>
+                <p>Access your arcade console</p>
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+                <div class="form-group">
+                    <label for="loginUsername">Username or Email</label>
+                    <input id="loginUsername" type="text" name="username" placeholder="Enter username or email" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input id="loginPassword" type="password" name="password" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn btn-block" style="margin-top: 0.75rem;">
+                    Enter Lobby
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </form>
+
+            <div class="auth-minimal-foot">
+                New player? <a href="{% url 'register' %}">Create an account</a>
+            </div>
+        </div>
+    </aside>
 </div>
 {% endblock %}

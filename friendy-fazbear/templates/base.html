@@ -1,41 +1,76 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{% if user.is_authenticated and user.settings.theme %}{{ user.settings.theme }}{% else %}dark{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Friendy Fazbear{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=20261123_9">
+    <script src="{% static 'js/app.js' %}?v=20261123_9" defer></script>
 </head>
 <body>
     <header class="topbar">
         <div class="nav-wrap">
-            <a href="{% url 'home' %}" class="brand">Friendy Fazbear</a>
-            <nav class="nav">
-                {% if user.is_authenticated %}
-                    <a href="{% url 'home' %}">🏠 Lobby</a>
-                    <a href="{% url 'arena' %}">⚔️ Arena</a>
-                    <a href="{% url 'friends' %}">👥 Crew</a>
-                    <a href="{% url 'profile' %}">👤 Profile</a>
-                    <a href="{% url 'user_settings' %}">⚙️ Settings</a>
-                    <a href="{% url 'logout' %}">🚪 Logout</a>
-                {% else %}
-                    <a href="{% url 'login' %}">Sign In</a>
-                    <a href="{% url 'register' %}">Create Account</a>
-                {% endif %}
-            </nav>
+            <a href="{% if user.is_authenticated %}{% url 'home' %}{% else %}{% url 'login' %}{% endif %}" class="brand">
+                <span class="brand-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="7" cy="6" r="2.5"/>
+                        <circle cx="17" cy="6" r="2.5"/>
+                        <path d="M5 13a7 7 0 0 1 14 0v2a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5v-2z"/>
+                        <circle cx="9.5" cy="12.5" r="1" fill="currentColor"/>
+                        <circle cx="14.5" cy="12.5" r="1" fill="currentColor"/>
+                        <path d="M10.5 16h3"/>
+                    </svg>
+                </span>
+                <span class="brand-title">Friendy Fazbear</span>
+            </a>
+
+            {% if user.is_authenticated %}
+                {% with current=request.resolver_match.url_name %}
+                <nav class="nav-links" aria-label="Main navigation">
+                    <a href="{% url 'home' %}" class="nav-item {% if current == 'home' %}active{% endif %}">Lobby</a>
+                    <a href="{% url 'arena' %}" class="nav-item {% if current == 'arena' %}active{% endif %}">Arena</a>
+                    <a href="{% url 'friends' %}" class="nav-item {% if current == 'friends' %}active{% endif %}">Crew</a>
+                    <a href="{% url 'profile' %}" class="nav-item {% if current == 'profile' %}active{% endif %}">Profile</a>
+                    <a href="{% url 'user_settings' %}" class="nav-item {% if current == 'user_settings' %}active{% endif %}">Settings</a>
+                </nav>
+                {% endwith %}
+
+                <div class="nav-actions">
+                    <a href="{% url 'profile' %}" class="profile-pill">
+                        <span class="av av-{{ user.profile.avatar|default:'freddy' }}">
+                            {% if user.profile.avatar == 'bonnie' %}BB
+                            {% elif user.profile.avatar == 'chica' %}CC
+                            {% elif user.profile.avatar == 'foxy' %}FX
+                            {% elif user.profile.avatar == 'golden_freddy' %}GF
+                            {% elif user.profile.avatar == 'puppet' %}TP
+                            {% else %}FF{% endif %}
+                        </span>
+                        <span>{{ user.profile.display_name|default:user.username }}</span>
+                    </a>
+                    <a href="{% url 'logout' %}" class="logout-btn">Sign Out</a>
+                </div>
+            {% else %}
+                <div class="nav-actions">
+                    <a href="{% url 'login' %}" class="btn btn-secondary btn-sm">Sign In</a>
+                    <a href="{% url 'register' %}" class="btn btn-sm">Register</a>
+                </div>
+            {% endif %}
         </div>
     </header>
 
-    <main class="container">
-        {% if messages %}
-            <div class="message-stack">
-                {% for message in messages %}
-                    <div class="message {{ message.tags }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
+    {% if messages %}
+    <div class="toast-stack" role="status" aria-live="polite">
+        {% for message in messages %}
+        <div class="toast {{ message.tags|default:'info' }}">
+            <span>{{ message }}</span>
+            <button type="button" class="toast-close" aria-label="Dismiss">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
+    <main class="container">
         {% block content %}{% endblock %}
     </main>
 </body>

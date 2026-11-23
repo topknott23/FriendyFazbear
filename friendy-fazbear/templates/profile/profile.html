@@ -2,95 +2,121 @@
 {% block title %}Player Profile | Friendy Fazbear{% endblock %}
 {% block content %}
 
-<!-- Page Hero -->
-<div class="page-hero">
-    <span class="badge badge-purple">👤 Player Profile</span>
-    <h1 style="margin-top: 0.65rem;">Your Identity</h1>
-    <p>Manage your account info, avatar, bio, and track your stats.</p>
-</div>
-
-{% for message in messages %}
-    <div class="message success" style="margin-bottom: 1rem;">✅ {{ message }}</div>
-{% endfor %}
-
-<div class="grid-2">
-    <!-- Profile Card -->
-    <div class="card" style="text-align: center;">
-        <div class="avatar-circle">
-            {% if profile.avatar == 'freddy' %}🐻
-            {% elif profile.avatar == 'bonnie' %}🐰
-            {% elif profile.avatar == 'chica' %}🐥
-            {% elif profile.avatar == 'foxy' %}🦊
-            {% elif profile.avatar == 'golden_freddy' %}✨
-            {% elif profile.avatar == 'puppet' %}🎭
-            {% else %}🐻
-            {% endif %}
-        </div>
-        <h2>{{ profile.display_name|default:user.username }}</h2>
-        <span class="badge" style="margin: 0.65rem 0;">{{ profile.gamer_tag }}</span>
-        <p style="color: var(--muted); font-size: 0.88rem; margin: 0.75rem 0; line-height: 1.6;">{{ profile.bio }}</p>
-
-        <div class="stats-mini">
-            <div>
-                <div class="stat-value">{{ profile.games_played }}</div>
-                <div class="stat-label">Matches</div>
-            </div>
-            <div>
-                <div class="stat-value">{{ profile.wins }}</div>
-                <div class="stat-label">Victories</div>
-            </div>
-            <div>
-                <div class="stat-value">{{ win_rate }}%</div>
-                <div class="stat-label">Win Rate</div>
-            </div>
-        </div>
+<section class="card hero-strip">
+    <div>
+        <span class="badge badge-purple">Player Identity</span>
+        <h1>Your Arcade Profile</h1>
+        <p style="color: var(--text-soft); font-size: 0.9rem;">Customize your character avatar, display name, and bio.</p>
     </div>
+</section>
+
+<div class="grid-lobby">
+    <!-- Player Card -->
+    <aside class="card" style="text-align: center;">
+        <div style="margin: 0.5rem 0 1rem; display: flex; justify-content: center;">
+            <div id="profileAvatarPreview" class="av av-lg av-{{ profile.avatar|default:'freddy' }}">
+                {% if profile.avatar == 'bonnie' %}BB
+                {% elif profile.avatar == 'chica' %}CC
+                {% elif profile.avatar == 'foxy' %}FX
+                {% elif profile.avatar == 'golden_freddy' %}GF
+                {% elif profile.avatar == 'puppet' %}TP
+                {% else %}FF{% endif %}
+            </div>
+        </div>
+
+        <h2 id="profileNamePreview" data-fallback="{{ user.username }}">{{ profile.display_name|default:user.username }}</h2>
+        <div style="margin: 0.5rem 0 0.85rem; display: flex; justify-content: center; gap: 0.45rem; flex-wrap: wrap;">
+            <span class="badge">{{ profile.gamer_tag }}</span>
+            <span class="badge badge-muted">@{{ user.username }}</span>
+        </div>
+
+        <p id="profileBioPreview" style="color: var(--text-soft); font-size: 0.88rem; margin: 0 auto 1.25rem; max-width: 34ch;">
+            {{ profile.bio }}
+        </p>
+
+        <div class="grid-3" style="padding-top: 1.15rem; border-top: 1px solid var(--border);">
+            <div class="kpi-box" style="min-width: 0;">
+                <strong>{{ profile.games_played }}</strong>
+                <span>Matches</span>
+            </div>
+            <div class="kpi-box" style="min-width: 0;">
+                <strong>{{ profile.wins }}</strong>
+                <span>Victories</span>
+            </div>
+            <div class="kpi-box" style="min-width: 0;">
+                <strong>{{ win_rate }}%</strong>
+                <span>Win Rate</span>
+            </div>
+        </div>
+    </aside>
 
     <!-- Edit Form -->
-    <div class="card">
-        <h3 style="margin-bottom: 0.5rem;">✏️ Edit Profile</h3>
+    <section class="card">
+        <div class="card-header-row">
+            <h3>Edit Profile Details</h3>
+            <span class="badge badge-muted">Live Preview</span>
+        </div>
+
         <form method="POST">
             {% csrf_token %}
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div>
-                    <label>First Name</label>
-                    <input type="text" name="first_name" value="{{ user.first_name }}" placeholder="First name">
-                </div>
-                <div>
-                    <label>Last Name</label>
-                    <input type="text" name="last_name" value="{{ user.last_name }}" placeholder="Last name">
-                </div>
-            </div>
 
-            <label>Email Address</label>
-            <input type="email" name="email" value="{{ user.email }}" placeholder="email@example.com">
-
-            <label>Display Name</label>
-            <input type="text" name="display_name" value="{{ profile.display_name }}" placeholder="Your display name">
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div>
-                    <label>Avatar</label>
-                    <select name="avatar">
-                        {% for val, label in profile.AVATAR_CHOICES %}
-                        <option value="{{ val }}" {% if profile.avatar == val %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label>Favorite Game</label>
-                    <input type="text" name="favorite_game" value="{{ profile.favorite_game }}">
+            <div class="form-group">
+                <label>Character Avatar</label>
+                <div class="avatar-grid">
+                    {% for val, label in profile.AVATAR_CHOICES %}
+                    <label class="avatar-choice">
+                        <input type="radio" name="avatar" value="{{ val }}" {% if profile.avatar == val %}checked{% endif %}>
+                        <span class="avatar-choice-box">
+                            <span class="av av-{{ val }}">
+                                {% if val == 'bonnie' %}BB
+                                {% elif val == 'chica' %}CC
+                                {% elif val == 'foxy' %}FX
+                                {% elif val == 'golden_freddy' %}GF
+                                {% elif val == 'puppet' %}TP
+                                {% else %}FF{% endif %}
+                            </span>
+                            <span style="font-size: 0.8rem; font-weight: 600;">{{ label }}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
                 </div>
             </div>
 
-            <label>Bio</label>
-            <textarea name="bio" rows="3" placeholder="Tell us about yourself...">{{ profile.bio }}</textarea>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="profDisplay">Display Name</label>
+                    <input id="profDisplay" type="text" name="display_name" value="{{ profile.display_name }}" placeholder="Arcade nickname">
+                </div>
+                <div class="form-group">
+                    <label for="profFav">Favorite Game</label>
+                    <input id="profFav" type="text" name="favorite_game" value="{{ profile.favorite_game }}">
+                </div>
+            </div>
 
-            <button type="submit" class="btn" style="width: 100%; margin-top: 1.25rem;">
-                💾 Save Changes
-            </button>
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="profFirst">First Name</label>
+                    <input id="profFirst" type="text" name="first_name" value="{{ user.first_name }}">
+                </div>
+                <div class="form-group">
+                    <label for="profLast">Last Name</label>
+                    <input id="profLast" type="text" name="last_name" value="{{ user.last_name }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="profEmail">Email Address</label>
+                <input id="profEmail" type="email" name="email" value="{{ user.email }}">
+            </div>
+
+            <div class="form-group">
+                <label for="profBio">Player Bio</label>
+                <textarea id="profBio" name="bio" rows="3">{{ profile.bio }}</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-block">Save Profile Changes</button>
         </form>
-    </div>
+    </section>
 </div>
 
 {% endblock %}
