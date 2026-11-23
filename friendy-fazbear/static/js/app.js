@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initCopyRoomCode();
     initSettingsControls();
     initProfilePreview();
-    initArenaCanvas();
 });
 
 /* 1. Dismissible Toast Stack */

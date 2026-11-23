@@ -1,19 +1,22 @@
 {% extends 'base.html' %}
-{% block title %}{{ game.name|default:"Arena" }} | Friendy Fazbear{% endblock %}
+{% load static %}
+{% block title %}{{ game.name|default:"Arena" }} — Friendy Fazbear{% endblock %}
 {% block content %}
 
 <section class="card hero-strip">
     <div>
         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-            <span class="badge badge-rose"><span class="dot-live"></span> Live Match Arena</span>
-            <span class="badge">Room #{{ room.room_code }}</span>
+            <span class="badge"><span class="dot-live"></span> Live Arena</span>
+            <span class="badge badge-muted">Room #{{ room.room_code }}</span>
+            <span class="badge badge-muted">Best: {{ high_score }} pts</span>
         </div>
         <h1>{{ game.name|default:"Fazbear Frenzy" }}</h1>
-        <p style="color: var(--text-soft); font-size: 0.9rem;">{{ game.genre }} — {{ game.description }}</p>
+        <p style="color: var(--text-soft); font-size: 0.88rem;">{{ game.genre }} — {{ game.description }}</p>
     </div>
     <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Back to Lobby</a>
 </section>
 
+<!-- Mini-Game Switcher -->
 <div class="switcher-bar">
     {% for g in all_games %}
     <a href="{% url 'arena' %}?game={{ g.game_id }}" class="switcher-pill {% if g.game_id == game.game_id %}active{% endif %}">
@@ -23,51 +26,62 @@
 </div>
 
 <div class="grid-arena">
+    <!-- Interactive 2D Arcade Stage -->
     <section class="card">
         <div class="hud-grid">
             <div class="hud-tile">
-                <span>Round Score</span>
-                <strong id="hudScore" style="color: var(--accent);">0</strong>
+                <span>Score</span>
+                <strong id="hudScore">0</strong>
             </div>
             <div class="hud-tile">
                 <span>Timer</span>
-                <strong id="hudTimer">20.0s</strong>
+                <strong id="hudTimer">30.0s</strong>
             </div>
             <div class="hud-tile">
                 <span>Combo</span>
-                <strong id="hudCombo" style="color: #fda4af;">x1</strong>
+                <strong id="hudCombo">x1</strong>
             </div>
             <div class="hud-tile">
-                <span>Personal Best</span>
-                <strong>{{ high_score }}</strong>
+                <span>Shields</span>
+                <strong id="hudHp">●●●</strong>
             </div>
         </div>
 
         <div class="canvas-wrap">
-            <canvas id="arenaCanvas" data-game="{{ game.game_id|default:'fazbear_frenzy' }}"></canvas>
+            <canvas
+                id="arenaCanvas"
+                data-game="{{ game.game_id|default:'fazbear_frenzy' }}"
+                data-master-vol="{{ user.settings.master_volume|default:80 }}"
+                data-sfx-vol="{{ user.settings.sfx_volume|default:85 }}"
+            ></canvas>
             <div class="canvas-modal" id="canvasOverlay">
-                <span class="badge">Interactive 2D Arena</span>
+                <span class="badge" id="overlayBadge">Playable 2D Mode</span>
                 <h3 id="overlayTitle">{{ game.name|default:"Fazbear Frenzy" }}</h3>
-                <p id="overlaySub">Move with mouse, touch, or WASD / Arrow keys. Collect glowing tokens and dodge red hazards for 20 seconds!</p>
-                <button type="button" id="startArcadeBtn" class="btn">Start 20s Match</button>
+                <p id="overlaySub">Press Start to begin your 30-second arcade round!</p>
+                <div style="display: flex; gap: 0.65rem; flex-wrap: wrap; justify-content: center;">
+                    <button type="button" id="startArcadeBtn" class="btn">Start 30s Round</button>
+                    <button type="button" id="saveOverlayBtn" class="btn btn-secondary" style="display: none;">Save Score to Leaderboard</button>
+                </div>
             </div>
         </div>
 
-        <form method="POST" class="score-bar">
+        <form method="POST" id="arenaScoreForm" class="score-bar">
             {% csrf_token %}
             <input type="hidden" name="game_id" value="{{ game.game_id }}">
+            <input type="hidden" name="duration_seconds" id="durationInput" value="30">
             <div class="form-group">
-                <label for="scoreInput">Round Score</label>
-                <input id="scoreInput" class="mono" type="number" name="score" value="850" min="0" max="99999" required>
+                <label for="scoreInput">Recorded Round Score</label>
+                <input id="scoreInput" class="mono" type="number" name="score" value="0" min="0" max="999999" required>
             </div>
-            <button type="submit" class="btn">Complete Match &amp; Record Score</button>
+            <button type="submit" class="btn">Save Match Score</button>
         </form>
     </section>
 
+    <!-- Recent Match History & Game Top Scores -->
     <aside class="card">
         <div class="card-header-row">
-            <h3>Recent Match History</h3>
-            <span class="badge badge-muted">{{ recent_matches|length }} Logged</span>
+            <h3>Recent Matches</h3>
+            <span class="badge badge-muted">{{ recent_matches|length }} Saved</span>
         </div>
 
         {% for entry in recent_matches %}
@@ -75,18 +89,21 @@
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <span class="rank-chip top-1">#{{ entry.rank_placement }}</span>
                 <div>
-                    <div style="font-weight: 700; font-size: 0.92rem;">{{ entry.match.game.name }}</div>
-                    <div style="font-size: 0.74rem; color: var(--muted);">{{ entry.recorded_at|timesince }} ago</div>
+                    <div style="font-weight: 700; font-size: 0.9rem;">{{ entry.match.game.name }}</div>
+                    <div class="mono" style="font-size: 0.72rem; color: var(--muted);">
+                        {{ entry.match.duration_seconds }}s · {{ entry.recorded_at|timesince }} ago
+                    </div>
                 </div>
             </div>
             <span class="badge">{{ entry.score }} pts</span>
         </div>
         {% empty %}
-        <p style="color: var(--text-soft); text-align: center; padding: 2rem 0.5rem; font-size: 0.9rem;">
-            No matches recorded yet. Play a round or submit a score to log your first victory!
+        <p style="color: var(--text-soft); text-align: center; padding: 2rem 0.5rem; font-size: 0.88rem;">
+            No matches recorded yet. Play a round above and save your first score!
         </p>
         {% endfor %}
     </aside>
 </div>
 
+<script src="{% static 'js/games.js' %}?v=20261123_10" defer></script>
 {% endblock %}

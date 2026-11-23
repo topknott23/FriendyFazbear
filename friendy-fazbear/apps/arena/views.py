@@ -40,24 +40,31 @@ def arena_view(request):
 
     if request.method == 'POST' and game and room:
         try:
-            score_val = int(request.POST.get('score', random.randint(450, 980)))
+            score_val = int(request.POST.get('score', 0))
         except (TypeError, ValueError):
-            score_val = 500
-        score_val = max(0, min(99999, score_val))
+            score_val = 0
+        score_val = max(0, min(999999, score_val))
+
+        try:
+            duration_val = int(request.POST.get('duration_seconds', 30))
+        except (TypeError, ValueError):
+            duration_val = 30
+        duration_val = max(1, min(3600, duration_val))
 
         match = GameMatch.objects.create(
             room=room,
             game=game,
-            winner_user=request.user,
+            winner_user=request.user if score_val > 0 else None,
             status='finished',
-            duration_seconds=random.randint(30, 180),
+            duration_seconds=duration_val,
             ended_at=timezone.now(),
         )
         MatchScore.objects.create(match=match, user=request.user, score=score_val, rank_placement=1)
         profile.games_played += 1
-        profile.wins += 1
+        if score_val > 0:
+            profile.wins += 1
         profile.save()
-        messages.success(request, f'Recorded {score_val:,} pts in {game.name}!')
+        messages.success(request, f'Saved {score_val:,} pts in {game.name} ({duration_val}s)!')
         return redirect(f"/arena/?game={game.game_id}")
 
     all_games = MiniGame.objects.filter(is_active=True)
