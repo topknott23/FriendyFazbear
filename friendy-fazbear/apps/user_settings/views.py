@@ -1,7 +1,8 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from apps.core.models import UserSettings, Profile
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
+from apps.core.models import UserSettings
+from apps.core.services import ensure_user_records
 
 
 def _clamp_vol(value, default):
@@ -13,11 +14,7 @@ def _clamp_vol(value, default):
 
 @login_required
 def settings_view(request):
-    Profile.objects.get_or_create(
-        user=request.user,
-        defaults={'display_name': request.user.username, 'gamer_tag': f'#FAZ-{request.user.id:02d}'},
-    )
-    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    _, user_settings = ensure_user_records(request.user)
 
     if request.method == 'POST':
         user_settings.master_volume = _clamp_vol(request.POST.get('master_volume'), 80)

@@ -1,28 +1,12 @@
-"""
-URL configuration for config project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path
 from apps.login.views import login_view, logout_view
 from apps.register.views import register_view
-from apps.home.views import home_view
+from apps.home.views import home_view, join_room_view, room_status_api, start_party_round_api
 from apps.user_profile.views import profile_view
 from apps.user_settings.views import settings_view
 from apps.arena.views import arena_view
-from apps.friends.views import friends_view
+from apps.friends.views import friends_view, notifications_api
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -30,6 +14,11 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('register/', register_view, name='register'),
     path('', home_view, name='home'),
+    path('join/', join_room_view, name='join_room'),
+    path('join/<str:room_code>/', join_room_view, name='join_room_code'),
+    path('api/room/<str:room_code>/', room_status_api, name='room_status_api'),
+    path('api/room/<str:room_code>/start-round/', start_party_round_api, name='start_party_round_api'),
+    path('api/notifications/', notifications_api, name='notifications_api'),
     path('profile/', profile_view, name='profile'),
     path('settings/', settings_view, name='user_settings'),
     path('arena/', arena_view, name='arena'),

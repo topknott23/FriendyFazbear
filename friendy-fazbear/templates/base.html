@@ -1,12 +1,12 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" data-theme="{% if user.is_authenticated and user.settings.theme %}{{ user.settings.theme }}{% else %}dark{% endif %}">
+<html lang="en" data-theme="{% if player_settings and player_settings.theme %}{{ player_settings.theme }}{% else %}dark{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Friendy Fazbear{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=20261123_10">
-    <script src="{% static 'js/app.js' %}?v=20261123_10" defer></script>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=20261125_13">
+    <script src="{% static 'js/app.js' %}?v=20261125_13" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -27,10 +27,18 @@
 
             {% if user.is_authenticated %}
                 {% with current=request.resolver_match.url_name %}
-                <nav class="nav-links" aria-label="Main navigation">
+                <nav class="nav-links" aria-label="Main navigation" data-notif-poll="{% url 'notifications_api' %}">
                     <a href="{% url 'home' %}" class="nav-item {% if current == 'home' %}active{% endif %}">Lobby</a>
                     <a href="{% url 'arena' %}" class="nav-item {% if current == 'arena' %}active{% endif %}">Arena</a>
-                    <a href="{% url 'friends' %}" class="nav-item {% if current == 'friends' %}active{% endif %}">Crew</a>
+                    <a href="{% url 'friends' %}" class="nav-item nav-item-notif {% if current == 'friends' %}active{% endif %}">
+                        <span>Crew</span>
+                        <span
+                            id="crewNotifBadge"
+                            class="nav-notif-badge {% if not crew_notifications_count %}hidden{% endif %}"
+                            aria-label="{{ crew_notifications_count }} pending crew notifications"
+                        >{{ crew_notifications_count }}</span>
+                    </a>
+                    <a href="{% url 'join_room' %}" class="nav-item {% if current == 'join_room' or current == 'join_room_code' %}active{% endif %}">Pair</a>
                     <a href="{% url 'profile' %}" class="nav-item {% if current == 'profile' %}active{% endif %}">Profile</a>
                     <a href="{% url 'user_settings' %}" class="nav-item {% if current == 'user_settings' %}active{% endif %}">Settings</a>
                 </nav>
@@ -38,20 +46,24 @@
 
                 <div class="nav-actions">
                     <a href="{% url 'profile' %}" class="profile-pill">
-                        <span class="av av-{{ user.profile.avatar|default:'freddy' }}">
-                            {% if user.profile.avatar == 'bonnie' %}BB
-                            {% elif user.profile.avatar == 'chica' %}CC
-                            {% elif user.profile.avatar == 'foxy' %}FX
-                            {% elif user.profile.avatar == 'golden_freddy' %}GF
-                            {% elif user.profile.avatar == 'puppet' %}TP
+                        <span class="av av-{{ player_profile.avatar|default:'freddy' }}">
+                            {% if player_profile.avatar == 'bonnie' %}BB
+                            {% elif player_profile.avatar == 'chica' %}CC
+                            {% elif player_profile.avatar == 'foxy' %}FX
+                            {% elif player_profile.avatar == 'golden_freddy' %}GF
+                            {% elif player_profile.avatar == 'puppet' %}TP
                             {% else %}FF{% endif %}
                         </span>
-                        <span>{{ user.profile.display_name|default:user.username }}</span>
+                        <span>{{ player_profile.display_name|default:user.username }}</span>
                     </a>
-                    <a href="{% url 'logout' %}" class="logout-btn">Sign Out</a>
+                    <form method="POST" action="{% url 'logout' %}" style="margin: 0;">
+                        {% csrf_token %}
+                        <button type="submit" class="logout-btn">Sign Out</button>
+                    </form>
                 </div>
             {% else %}
                 <div class="nav-actions">
+                    <a href="{% url 'join_room' %}" class="btn btn-secondary btn-sm">Pair Device</a>
                     <a href="{% url 'login' %}" class="btn btn-secondary btn-sm">Sign In</a>
                     <a href="{% url 'register' %}" class="btn btn-sm">Register</a>
                 </div>

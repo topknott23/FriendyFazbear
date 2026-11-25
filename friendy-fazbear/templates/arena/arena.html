@@ -3,26 +3,64 @@
 {% block title %}{{ game.name|default:"Arena" }} — Friendy Fazbear{% endblock %}
 {% block content %}
 
+<div
+    id="arenaSyncRoot"
+    data-arena-poll="{% url 'room_status_api' room.room_code %}"
+    data-start-round-url="{% url 'start_party_round_api' room.room_code %}"
+    data-is-party="{% if is_party_mode %}1{% else %}0{% endif %}"
+    data-is-host="{% if is_host %}1{% else %}0{% endif %}"
+    data-host-name="{{ room.host_user.username }}"
+    data-current-game="{{ game.game_id|default:'' }}"
+    data-match-id="{{ latest_party_match.id|default:'' }}"
+    data-match-status="{{ latest_party_match.status|default:'' }}"
+    data-my-submitted="{% if my_submitted_in_match %}1{% else %}0{% endif %}"
+    data-starts-in-ms="{% if starts_in_ms is not None %}{{ starts_in_ms }}{% endif %}"
+    data-score-count="{{ latest_party_match.scores.count|default:0 }}"
+>
 <section class="card hero-strip">
     <div>
         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-            <span class="badge"><span class="dot-live"></span> Live Arena</span>
-            <span class="badge badge-muted">Room #{{ room.room_code }}</span>
-            <span class="badge badge-muted">Best: {{ high_score }} pts</span>
+            <span class="badge"><span class="dot-live"></span> {% if is_party_mode %}Party Showdown{% else %}Live Arena{% endif %}</span>
+            <span class="badge badge-muted">Room #{{ room.room_code }} ({{ room_players|length }}P)</span>
+            <span class="badge badge-muted">Your Best: {{ high_score }} pts</span>
+            {% if not is_host %}
+            <span class="badge badge-purple">Synced with Host {{ room.host_user.username }}</span>
+            {% endif %}
         </div>
         <h1>{{ game.name|default:"Fazbear Frenzy" }}</h1>
         <p style="color: var(--text-soft); font-size: 0.88rem;">{{ game.genre }} — {{ game.description }}</p>
     </div>
-    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Back to Lobby</a>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        {% if is_host %}
+        <form method="POST" style="margin: 0;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="return_to_lobby">
+            <button type="submit" class="btn btn-secondary btn-sm">
+                {% if is_party_mode %}Return Party to Lobby{% else %}Back to Lobby{% endif %}
+            </button>
+        </form>
+        {% else %}
+        <span class="badge badge-muted">Host controls navigation</span>
+        {% endif %}
+    </div>
 </section>
 
-<!-- Mini-Game Switcher -->
+<!-- Mini-Game Switcher (Host-only clickable; Crew members auto-sync) -->
 <div class="switcher-bar">
     {% for g in all_games %}
-    <a href="{% url 'arena' %}?game={{ g.game_id }}" class="switcher-pill {% if g.game_id == game.game_id %}active{% endif %}">
-        {{ g.name }}
-    </a>
+        {% if is_host %}
+        <a href="{% url 'arena' %}?game={{ g.game_id }}" class="switcher-pill {% if g.game_id == game.game_id %}active{% endif %}">
+            {{ g.name }}
+        </a>
+        {% else %}
+        <span class="switcher-pill locked {% if g.game_id == game.game_id %}active{% endif %}" title="Only the host can switch games">
+            {{ g.name }}
+        </span>
+        {% endif %}
     {% endfor %}
+    {% if not is_host %}
+    <span class="badge badge-muted" style="margin-left: auto;">Host selects game</span>
+    {% endif %}
 </div>
 
 <div class="grid-arena">
@@ -47,63 +85,182 @@
             </div>
         </div>
 
+        <div class="arena-toolbar">
+            <button type="button" id="pauseArcadeBtn" class="btn btn-secondary btn-sm" disabled>Pause (P)</button>
+            <button type="button" id="toggleMusicBtn" class="btn btn-secondary btn-sm" aria-pressed="false">Synth Music: Off</button>
+        </div>
+
         <div class="canvas-wrap">
             <canvas
                 id="arenaCanvas"
                 data-game="{{ game.game_id|default:'fazbear_frenzy' }}"
-                data-master-vol="{{ user.settings.master_volume|default:80 }}"
-                data-sfx-vol="{{ user.settings.sfx_volume|default:85 }}"
+                data-master-vol="{{ player_settings.master_volume|default:80 }}"
+                data-sfx-vol="{{ player_settings.sfx_volume|default:85 }}"
+                data-music-vol="{{ player_settings.music_volume|default:70 }}"
             ></canvas>
             <div class="canvas-modal" id="canvasOverlay">
-                <span class="badge" id="overlayBadge">Playable 2D Mode</span>
+                <span class="badge" id="overlayBadge">{% if is_party_mode %}Party Match Mode{% else %}Playable 2D Mode{% endif %}</span>
+                <div class="countdown-display hidden" id="countdownDisplay" aria-live="assertive">3</div>
                 <h3 id="overlayTitle">{{ game.name|default:"Fazbear Frenzy" }}</h3>
-                <p id="overlaySub">Press Start to begin your 30-second arcade round!</p>
+                <p id="overlaySub">
+                    {% if is_party_mode and not is_host %}
+                        Waiting for Host {{ room.host_user.username }} to start the 3-second countdown...
+                    {% else %}
+                        Press Start to begin your 30-second arcade round!
+                    {% endif %}
+                </p>
                 <div style="display: flex; gap: 0.65rem; flex-wrap: wrap; justify-content: center;">
+                    {% if is_party_mode and not is_host %}
+                    <button type="button" id="startArcadeBtn" class="btn btn-secondary btn-locked" disabled>Waiting for Host to Start...</button>
+                    {% elif is_party_mode and is_host %}
+                    <button type="button" id="startArcadeBtn" class="btn">Start Party Round (3s)</button>
+                    {% else %}
                     <button type="button" id="startArcadeBtn" class="btn">Start 30s Round</button>
-                    <button type="button" id="saveOverlayBtn" class="btn btn-secondary" style="display: none;">Save Score to Leaderboard</button>
+                    {% endif %}
+                    <button type="button" id="saveOverlayBtn" class="btn btn-secondary" style="display: none;">
+                        {% if is_party_mode %}Submit Party Score{% else %}Save Score to Leaderboard{% endif %}
+                    </button>
                 </div>
             </div>
         </div>
 
         <form method="POST" id="arenaScoreForm" class="score-bar">
             {% csrf_token %}
+            <input type="hidden" name="action" value="save_score">
             <input type="hidden" name="game_id" value="{{ game.game_id }}">
             <input type="hidden" name="duration_seconds" id="durationInput" value="30">
             <div class="form-group">
                 <label for="scoreInput">Recorded Round Score</label>
                 <input id="scoreInput" class="mono" type="number" name="score" value="0" min="0" max="999999" required>
             </div>
-            <button type="submit" class="btn">Save Match Score</button>
+            <button type="submit" id="saveScoreSubmitBtn" class="btn">
+                {% if is_party_mode %}Submit Party Score{% else %}Save Match Score{% endif %}
+            </button>
         </form>
     </section>
 
-    <!-- Recent Match History & Game Top Scores -->
-    <aside class="card">
-        <div class="card-header-row">
-            <h3>Recent Matches</h3>
-            <span class="badge badge-muted">{{ recent_matches|length }} Saved</span>
-        </div>
+    <!-- Party Standings, Game Top Scores & Recent Match History -->
+    <aside style="display: flex; flex-direction: column; gap: 1.2rem;">
+        {% if is_party_mode %}
+        <section class="card" style="border-color: var(--accent);">
+            <div class="card-header-row">
+                <h3>Party Match Standings</h3>
+                {% if latest_party_match and latest_party_match.status == 'finished' %}
+                <span class="badge badge-emerald">Finished</span>
+                {% else %}
+                <span class="badge"><span class="dot-live"></span> Live Round</span>
+                {% endif %}
+            </div>
 
-        {% for entry in recent_matches %}
-        <div class="list-row">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <span class="rank-chip top-1">#{{ entry.rank_placement }}</span>
-                <div>
-                    <div style="font-weight: 700; font-size: 0.9rem;">{{ entry.match.game.name }}</div>
-                    <div class="mono" style="font-size: 0.72rem; color: var(--muted);">
-                        {{ entry.match.duration_seconds }}s · {{ entry.recorded_at|timesince }} ago
+            {% for entry in party_standings %}
+            <div class="list-row {% if entry.is_me %}highlight{% endif %}">
+                <div style="display: flex; align-items: center; gap: 0.7rem;">
+                    <span class="rank-chip {% if entry.rank == 1 %}top-1{% elif entry.rank == 2 %}top-2{% elif entry.rank == 3 %}top-3{% endif %}">
+                        {% if entry.rank %}#{{ entry.rank }}{% else %}P{{ entry.slot_number }}{% endif %}
+                    </span>
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.9rem;">
+                            {{ entry.alias }}
+                            {% if entry.is_host %}<span class="badge badge-muted" style="margin-left: 0.3rem;">Host</span>{% endif %}
+                        </div>
+                        <div class="mono" style="font-size: 0.72rem; color: var(--muted);">
+                            {% if entry.submitted %}
+                                {% if latest_party_match.status == 'finished' and entry.rank == 1 %}
+                                    Round Winner
+                                {% else %}
+                                    Score Locked In
+                                {% endif %}
+                            {% else %}
+                                Playing round...
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
+                {% if entry.submitted %}
+                <span class="badge">{{ entry.score }} pts</span>
+                {% else %}
+                <span class="badge badge-muted">Pending</span>
+                {% endif %}
             </div>
-            <span class="badge">{{ entry.score }} pts</span>
-        </div>
-        {% empty %}
-        <p style="color: var(--text-soft); text-align: center; padding: 2rem 0.5rem; font-size: 0.88rem;">
-            No matches recorded yet. Play a round above and save your first score!
-        </p>
-        {% endfor %}
+            {% endfor %}
+
+            {% if is_host %}
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.95rem; flex-wrap: wrap;">
+                <form method="POST" style="margin: 0; flex: 1;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="new_party_round">
+                    <button type="submit" class="btn btn-sm btn-block">New Party Round</button>
+                </form>
+                {% if latest_party_match and latest_party_match.status == 'ongoing' and latest_party_match.scores.count > 0 %}
+                <form method="POST" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="finish_party_match">
+                    <button type="submit" class="btn btn-secondary btn-sm">Crown Winner</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        <section class="card">
+            <div class="card-header-row">
+                <h3>{{ game.name }} Top Scores</h3>
+                <span class="badge">Top {{ game_top_scores|length }}</span>
+            </div>
+
+            {% for row in game_top_scores %}
+            <div class="list-row {% if row.user__id == user.id %}highlight{% endif %}">
+                <div style="display: flex; align-items: center; gap: 0.7rem;">
+                    <span class="rank-chip {% if forloop.counter == 1 %}top-1{% elif forloop.counter == 2 %}top-2{% elif forloop.counter == 3 %}top-3{% endif %}">
+                        #{{ forloop.counter }}
+                    </span>
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.9rem;">
+                            {{ row.user__profile__display_name|default:row.user__username }}
+                        </div>
+                        <div class="mono" style="font-size: 0.72rem; color: var(--muted);">
+                            {{ row.user__profile__gamer_tag|default:'#FAZ' }}
+                        </div>
+                    </div>
+                </div>
+                <span class="badge">{{ row.best_score }} pts</span>
+            </div>
+            {% empty %}
+            <p style="color: var(--text-soft); text-align: center; padding: 1.25rem 0.5rem; font-size: 0.86rem;">
+                Be the first to claim #1 on {{ game.name }}!
+            </p>
+            {% endfor %}
+        </section>
+
+        <section class="card">
+            <div class="card-header-row">
+                <h3>Your Recent Matches</h3>
+                <span class="badge badge-muted">{{ recent_matches|length }} Saved</span>
+            </div>
+
+            {% for entry in recent_matches %}
+            <div class="list-row">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span class="rank-chip {% if entry.rank_placement == 1 %}top-1{% elif entry.rank_placement == 2 %}top-2{% elif entry.rank_placement == 3 %}top-3{% endif %}">#{{ entry.rank_placement }}</span>
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.9rem;">{{ entry.match.game.name }}</div>
+                        <div class="mono" style="font-size: 0.72rem; color: var(--muted);">
+                            {{ entry.match.duration_seconds }}s · {{ entry.recorded_at|timesince }} ago
+                        </div>
+                    </div>
+                </div>
+                <span class="badge">{{ entry.score }} pts</span>
+            </div>
+            {% empty %}
+            <p style="color: var(--text-soft); text-align: center; padding: 1.5rem 0.5rem; font-size: 0.88rem;">
+                No matches recorded yet. Play a round and save your first score!
+            </p>
+            {% endfor %}
+        </section>
     </aside>
 </div>
+</div>
 
-<script src="{% static 'js/games.js' %}?v=20261123_10" defer></script>
+<script src="{% static 'js/games.js' %}?v=20261125_13" defer></script>
 {% endblock %}

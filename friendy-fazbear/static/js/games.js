@@ -23,6 +23,7 @@ function initFazbearArcade(canvas) {
     const gameId = canvas.dataset.game || 'fazbear_frenzy';
     const masterVol = Math.max(0, Math.min(100, Number(canvas.dataset.masterVol ?? 80))) / 100;
     const sfxVol = Math.max(0, Math.min(100, Number(canvas.dataset.sfxVol ?? 85))) / 100;
+    const musicVol = Math.max(0, Math.min(100, Number(canvas.dataset.musicVol ?? 70))) / 100;
 
     // UI Elements
     const overlay = document.getElementById('canvasOverlay');
@@ -31,6 +32,8 @@ function initFazbearArcade(canvas) {
     const overlaySub = document.getElementById('overlaySub');
     const startBtn = document.getElementById('startArcadeBtn');
     const saveOverlayBtn = document.getElementById('saveOverlayBtn');
+    const pauseBtn = document.getElementById('pauseArcadeBtn');
+    const musicBtn = document.getElementById('toggleMusicBtn');
 
     const hudScore = document.getElementById('hudScore');
     const hudTimer = document.getElementById('hudTimer');
@@ -40,6 +43,7 @@ function initFazbearArcade(canvas) {
     const scoreInput = document.getElementById('scoreInput');
     const durationInput = document.getElementById('durationInput');
     const scoreForm = document.getElementById('arenaScoreForm');
+    const saveScoreSubmitBtn = document.getElementById('saveScoreSubmitBtn');
 
     // Web Audio Synthesizer (zero external files, respects user volume settings)
     let audioCtx = null;
@@ -68,6 +72,8 @@ function initFazbearArcade(canvas) {
         hit: () => beep(140, 0.2, 'sawtooth', 0.3),
         deflect: (combo = 1) => beep(380 + Math.min(combo, 8) * 60, 0.09, 'square', 0.18),
         door: () => beep(220, 0.08, 'square', 0.2),
+        countdownTick: () => beep(440, 0.12, 'triangle', 0.26),
+        countdownGo: () => { beep(880, 0.16, 'triangle', 0.3); setTimeout(() => beep(1174, 0.18, 'triangle', 0.24), 75); },
         win: () => {
             [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.14, 'triangle', 0.24), i * 85));
         },
@@ -93,8 +99,48 @@ function initFazbearArcade(canvas) {
     };
     const meta = GAME_META[gameId] || GAME_META.fazbear_frenzy;
 
+    // Subtle Retro Chiptune Synth Loop (respects master_volume * music_volume)
+    let musicEnabled = false;
+    let musicTimer = null;
+    let musicStep = 0;
+    const synthScale = [220, 261.63, 329.63, 293.66, 392.0, 329.63, 261.63, 246.94];
+
+    function stopMusicLoop() {
+        if (musicTimer) {
+            clearInterval(musicTimer);
+            musicTimer = null;
+        }
+    }
+
+    function startMusicLoop() {
+        stopMusicLoop();
+        if (!musicEnabled || masterVol * musicVol <= 0.005) return;
+        musicTimer = setInterval(() => {
+            if (!running || paused || !musicEnabled) return;
+            const note = synthScale[musicStep % synthScale.length];
+            musicStep += 1;
+            const vol = masterVol * musicVol * 0.07;
+            if (vol <= 0.002) return;
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(note, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0008, audioCtx.currentTime + 0.16);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.16);
+            } catch {}
+        }, 220);
+    }
+
     // Shared Game State
     let running = false;
+    let paused = false;
     let score = 0;
     let combo = 1;
     let hp = 3;
@@ -700,15 +746,45 @@ function initFazbearArcade(canvas) {
         else initNightGuard();
 
         running = true;
+        paused = false;
         lastTs = performance.now();
         if (overlay) overlay.classList.add('hidden');
         if (saveOverlayBtn) saveOverlayBtn.style.display = 'none';
+        if (pauseBtn) {
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = 'Pause (P)';
+        }
+        startMusicLoop();
         updateHud();
         requestAnimationFrame(loop);
     }
 
+    function togglePause() {
+        if (!running) return;
+        paused = !paused;
+        if (pauseBtn) pauseBtn.textContent = paused ? 'Resume (P)' : 'Pause (P)';
+        if (paused) {
+            if (overlayBadge) overlayBadge.textContent = 'PAUSED';
+            if (overlayTitle) overlayTitle.textContent = 'ROUND PAUSED';
+            if (overlaySub) overlaySub.textContent = 'Press P, Esc, or click Resume to jump back into the arena.';
+            if (startBtn) startBtn.textContent = 'Resume Round';
+            if (saveOverlayBtn) saveOverlayBtn.style.display = 'none';
+            if (overlay) overlay.classList.remove('hidden');
+        } else {
+            if (overlay) overlay.classList.add('hidden');
+            lastTs = performance.now();
+            requestAnimationFrame(loop);
+        }
+    }
+
     function finishGame(survived) {
         running = false;
+        paused = false;
+        stopMusicLoop();
+        if (pauseBtn) {
+            pauseBtn.disabled = true;
+            pauseBtn.textContent = 'Pause (P)';
+        }
         if (survived) {
             const bonus = hp * 150;
             score += bonus;
@@ -721,16 +797,25 @@ function initFazbearArcade(canvas) {
         if (overlayTitle) overlayTitle.textContent = `FINAL SCORE: ${finalScore.toLocaleString()} PTS`;
         if (overlaySub) {
             overlaySub.textContent = survived
-                ? `Survived ${Math.round(elapsed)}s with ${hp} shield${hp === 1 ? '' : 's'} left! Save your score to Supabase or play again.`
+                ? `Survived ${Math.round(elapsed)}s with ${hp} shield${hp === 1 ? '' : 's'} left! Save your score to the leaderboard or play again.`
                 : `Lasted ${Math.round(elapsed)}s before losing all shields. Save your score or try another run!`;
         }
-        if (startBtn) startBtn.textContent = 'Play Again';
+        if (startBtn) {
+            if (isParty && !isHost) {
+                startBtn.disabled = true;
+                startBtn.textContent = 'Waiting for Host...';
+            } else if (isParty && isHost) {
+                startBtn.style.display = 'none';
+            } else {
+                startBtn.textContent = 'Play Again';
+            }
+        }
         if (saveOverlayBtn) saveOverlayBtn.style.display = 'inline-flex';
         if (overlay) overlay.classList.remove('hidden');
     }
 
     function loop(ts) {
-        if (!running) return;
+        if (!running || paused) return;
         const dt = Math.min(0.05, (ts - lastTs) / 1000 || 0.016);
         lastTs = ts;
 
@@ -792,7 +877,12 @@ function initFazbearArcade(canvas) {
         if (running && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
             e.preventDefault();
         }
-        if (running && gameId === 'night_guard_duel') {
+        if (running && (e.key === 'p' || e.key === 'P' || e.key === 'Escape')) {
+            e.preventDefault();
+            togglePause();
+            return;
+        }
+        if (running && !paused && gameId === 'night_guard_duel') {
             if (e.key === '1') triggerCamSector(0);
             if (e.key === '2') triggerCamSector(1);
             if (e.key === '3') triggerCamSector(2);
@@ -801,13 +891,177 @@ function initFazbearArcade(canvas) {
     });
     window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-    if (startBtn) startBtn.addEventListener('click', startGame);
+    // Synchronized 3-2-1-GO! Countdown & Party Sync Controls
+    const syncRoot = document.getElementById('arenaSyncRoot');
+    const countdownDisplay = document.getElementById('countdownDisplay');
+    const isParty = syncRoot && syncRoot.getAttribute('data-is-party') === '1';
+    const isHost = !syncRoot || syncRoot.getAttribute('data-is-host') === '1';
+    const hostName = (syncRoot && syncRoot.getAttribute('data-host-name')) || 'Host';
+    const startRoundUrl = syncRoot ? syncRoot.getAttribute('data-start-round-url') : '';
+    const initialMatchId = syncRoot ? syncRoot.getAttribute('data-match-id') : '';
+    const mySubmitted = syncRoot && syncRoot.getAttribute('data-my-submitted') === '1';
+
+    let countingDown = false;
+    let countdownRaf = null;
+    let lastCountdownNum = null;
+    const triggeredMatchIds = new Set();
+
+    window.fazbearIsActive = () => running || countingDown;
+
+    function getCsrfToken() {
+        const input = scoreForm ? scoreForm.querySelector('input[name="csrfmiddlewaretoken"]') : null;
+        return input ? input.value : '';
+    }
+
+    function runCountdown(durationMs) {
+        if (running || countingDown) return;
+        const clampedMs = Math.max(0, Math.min(4500, Number(durationMs) || 0));
+        if (clampedMs <= 80) {
+            if (countdownDisplay) countdownDisplay.classList.add('hidden');
+            startGame();
+            return;
+        }
+
+        countingDown = true;
+        lastCountdownNum = null;
+        const targetTime = performance.now() + clampedMs;
+
+        if (overlay) overlay.classList.remove('hidden');
+        if (overlayBadge) overlayBadge.textContent = isParty ? 'SYNCED PARTY START' : 'GET READY';
+        if (overlayTitle) overlayTitle.textContent = 'STARTING IN...';
+        if (overlaySub) overlaySub.textContent = meta.controls;
+        if (startBtn) startBtn.style.display = 'none';
+        if (saveOverlayBtn) saveOverlayBtn.style.display = 'none';
+        if (countdownDisplay) countdownDisplay.classList.remove('hidden');
+
+        function stepCountdown() {
+            if (!countingDown) return;
+            const remaining = targetTime - performance.now();
+            if (remaining <= 0) {
+                countingDown = false;
+                if (countdownDisplay) {
+                    countdownDisplay.textContent = 'GO!';
+                    countdownDisplay.classList.add('hidden');
+                }
+                if (startBtn) startBtn.style.display = '';
+                sfx.countdownGo();
+                startGame();
+                return;
+            }
+
+            const sec = Math.max(1, Math.min(3, Math.ceil(remaining / 1000)));
+            if (sec !== lastCountdownNum) {
+                lastCountdownNum = sec;
+                if (countdownDisplay) {
+                    countdownDisplay.textContent = String(sec);
+                    // Retrigger CSS pop animation cleanly
+                    countdownDisplay.style.animation = 'none';
+                    void countdownDisplay.offsetWidth;
+                    countdownDisplay.style.animation = '';
+                }
+                sfx.countdownTick();
+            }
+            countdownRaf = requestAnimationFrame(stepCountdown);
+        }
+
+        countdownRaf = requestAnimationFrame(stepCountdown);
+    }
+
+    window.fazbearTriggerSyncedCountdown = (matchId, startsInMs) => {
+        if (!matchId || triggeredMatchIds.has(matchId) || running || countingDown) return;
+        // Ignore stale rounds started >25s ago so late arrivals don't jump into a dead round
+        if (startsInMs < -25000) return;
+        triggeredMatchIds.add(matchId);
+        runCountdown(startsInMs);
+    };
+
+    async function handleStartClick() {
+        if (running && paused) {
+            togglePause();
+            return;
+        }
+        if (running || countingDown) return;
+
+        // In Party Mode, only Host can press Start — POST to server so Crew syncs on the exact same 3s timer!
+        if (isParty) {
+            if (!isHost) return;
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.textContent = 'Syncing Party...';
+            }
+            try {
+                const res = await fetch(startRoundUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCsrfToken(),
+                        Accept: 'application/json',
+                    },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.match_id) triggeredMatchIds.add(String(data.match_id));
+                    runCountdown(data.starts_in_ms ?? 3000);
+                    return;
+                }
+            } catch {
+                // Fall back to local 3s countdown if request fails
+            } finally {
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.textContent = 'Start Party Round (3s)';
+                }
+            }
+            runCountdown(3000);
+            return;
+        }
+
+        // Solo mode: crisp 3-2-1-GO! countdown
+        runCountdown(3000);
+    }
+
+    if (startBtn) {
+        startBtn.addEventListener('click', handleStartClick);
+    }
+    if (pauseBtn) {
+        pauseBtn.addEventListener('click', togglePause);
+    }
+    if (musicBtn) {
+        musicBtn.addEventListener('click', () => {
+            musicEnabled = !musicEnabled;
+            musicBtn.setAttribute('aria-pressed', String(musicEnabled));
+            musicBtn.textContent = musicEnabled ? 'Synth Music: On' : 'Synth Music: Off';
+            if (musicEnabled && running) startMusicLoop();
+            else stopMusicLoop();
+        });
+    }
     if (saveOverlayBtn && scoreForm) {
-        saveOverlayBtn.addEventListener('click', () => scoreForm.submit());
+        saveOverlayBtn.addEventListener('click', () => {
+            saveOverlayBtn.disabled = true;
+            saveOverlayBtn.textContent = 'Saving...';
+            scoreForm.submit();
+        });
+    }
+    if (scoreForm && saveScoreSubmitBtn) {
+        scoreForm.addEventListener('submit', () => {
+            saveScoreSubmitBtn.disabled = true;
+            saveScoreSubmitBtn.textContent = 'Saving...';
+        });
     }
 
     // Initial idle render + dynamic instructions
-    if (overlaySub) overlaySub.textContent = meta.controls;
+    if (overlaySub) {
+        if (isParty && !isHost) {
+            overlaySub.textContent = `Waiting for Host ${hostName} to press Start! ${meta.controls}`;
+        } else {
+            overlaySub.textContent = meta.controls;
+        }
+    }
     drawGridBackground(0);
     updateHud();
+
+    // If a synced party countdown was already in progress when this page loaded, join it immediately!
+    const initialStartsAttr = syncRoot ? syncRoot.getAttribute('data-starts-in-ms') : '';
+    if (isParty && !mySubmitted && initialMatchId && initialStartsAttr !== '') {
+        window.fazbearTriggerSyncedCountdown(initialMatchId, Number(initialStartsAttr));
+    }
 }

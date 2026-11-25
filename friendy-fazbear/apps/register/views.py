@@ -1,8 +1,8 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth.models import User
-from django.contrib.auth import login
 from django.contrib import messages
-from apps.core.models import Profile, UserSettings
+from django.contrib.auth import login
+from django.contrib.auth.models import User
+from django.shortcuts import redirect, render
+from apps.core.services import ensure_user_records
 
 
 def register_view(request):
@@ -28,16 +28,14 @@ def register_view(request):
             messages.error(request, 'An account with that email already exists.')
         elif len(password) < 6:
             messages.error(request, 'Password must be at least 6 characters long.')
-        elif confirm_password and password != confirm_password:
+        elif password != confirm_password:
             messages.error(request, 'Passwords do not match.')
         else:
             user = User.objects.create_user(username=username, email=email, password=password)
-            profile, _ = Profile.objects.get_or_create(user=user, defaults={'display_name': username})
-            profile.gamer_tag = f'#FAZ-{user.id:02d}'
+            profile, _ = ensure_user_records(user)
             if not profile.display_name:
                 profile.display_name = username
-            profile.save()
-            UserSettings.objects.get_or_create(user=user)
+                profile.save(update_fields=['display_name'])
             login(request, user)
             messages.success(request, f'Welcome to Friendy Fazbear, {username}!')
             return redirect('home')

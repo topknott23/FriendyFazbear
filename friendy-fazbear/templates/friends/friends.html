@@ -4,17 +4,72 @@
 
 <section class="card hero-strip">
     <div>
-        <span class="badge">Social &amp; Rankings</span>
+        <span class="badge">Social &amp; Party Hub</span>
         <h1>Fazbear Crew &amp; Leaderboard</h1>
-        <p style="color: var(--text-soft); font-size: 0.9rem;">Team up with arcade friends and track the top global players.</p>
+        <p style="color: var(--text-soft); font-size: 0.9rem;">
+            Build your crew, invite friends straight into your party lobby, and compete head-to-head.
+        </p>
     </div>
+    {% if my_room %}
+    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Active Party #{{ my_room.room_code }}</a>
+    {% endif %}
 </section>
 
-<div class="grid-2">
+{% if incoming_party_invites %}
+<section class="card" style="margin-bottom: 1.35rem; border-color: var(--accent);">
+    <div class="card-header-row">
+        <h3>Party Invites</h3>
+        <span class="badge">{{ incoming_party_invites|length }} Pending</span>
+    </div>
+
+    {% for invite in incoming_party_invites %}
+    <div class="list-row highlight">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="av av-md av-{{ invite.sender.profile.avatar|default:'freddy' }}">
+                {% if invite.sender.profile.avatar == 'bonnie' %}BB
+                {% elif invite.sender.profile.avatar == 'chica' %}CC
+                {% elif invite.sender.profile.avatar == 'foxy' %}FX
+                {% elif invite.sender.profile.avatar == 'golden_freddy' %}GF
+                {% elif invite.sender.profile.avatar == 'puppet' %}TP
+                {% else %}FF{% endif %}
+            </span>
+            <div>
+                <div style="font-weight: 700; font-size: 0.94rem;">
+                    {{ invite.sender.profile.display_name|default:invite.sender.username }} invited you to Party #{{ invite.room.room_code }}
+                </div>
+                <div class="mono" style="font-size: 0.74rem; color: var(--muted);">
+                    {% if invite.room.status == 'in_game' and invite.room.current_game %}
+                        In Arena: {{ invite.room.current_game.name }}
+                    {% else %}
+                        Waiting in Lobby · Host chooses the game
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="accept_party_invite">
+                <input type="hidden" name="invite_id" value="{{ invite.id }}">
+                <button type="submit" class="btn btn-sm">Join Party</button>
+            </form>
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="decline_party_invite">
+                <input type="hidden" name="invite_id" value="{{ invite.id }}">
+                <button type="submit" class="btn btn-secondary btn-sm">Decline</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+<div class="grid-2" style="align-items: start;">
     <section class="card">
         <div class="card-header-row">
             <h3>Add Arcade Friend</h3>
-            <span class="badge badge-muted">{{ friendships|length }} in Crew</span>
+            <span class="badge badge-muted">{{ crew_members|length }} in Crew</span>
         </div>
 
         <form method="POST" style="display: flex; gap: 0.6rem; margin-bottom: 1.4rem;">
@@ -24,47 +79,136 @@
             <button type="submit" class="btn">Invite</button>
         </form>
 
-        <h4 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-soft); margin-bottom: 0.75rem;">
-            Your Crew Roster
-        </h4>
-
-        {% for f in friendships %}
-        <div class="list-row">
+        {% if incoming_requests %}
+        <h4 class="crew-subhead">Incoming Friend Requests ({{ incoming_requests|length }})</h4>
+        {% for req in incoming_requests %}
+        <div class="list-row highlight">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <span class="av av-md av-{{ f.addressee.profile.avatar|default:'freddy' }}">
-                    {% if f.addressee.profile.avatar == 'bonnie' %}BB
-                    {% elif f.addressee.profile.avatar == 'chica' %}CC
-                    {% elif f.addressee.profile.avatar == 'foxy' %}FX
-                    {% elif f.addressee.profile.avatar == 'golden_freddy' %}GF
-                    {% elif f.addressee.profile.avatar == 'puppet' %}TP
+                <span class="av av-md av-{{ req.requester.profile.avatar|default:'freddy' }}">
+                    {% if req.requester.profile.avatar == 'bonnie' %}BB
+                    {% elif req.requester.profile.avatar == 'chica' %}CC
+                    {% elif req.requester.profile.avatar == 'foxy' %}FX
+                    {% elif req.requester.profile.avatar == 'golden_freddy' %}GF
+                    {% elif req.requester.profile.avatar == 'puppet' %}TP
                     {% else %}FF{% endif %}
                 </span>
                 <div>
-                    <div style="font-weight: 700; font-size: 0.93rem;">{{ f.addressee.profile.display_name|default:f.addressee.username }}</div>
-                    <div class="mono" style="font-size: 0.74rem; color: var(--muted);">@{{ f.addressee.username }} · {{ f.addressee.profile.gamer_tag|default:'#FAZ' }}</div>
+                    <div style="font-weight: 700; font-size: 0.93rem;">{{ req.requester.profile.display_name|default:req.requester.username }}</div>
+                    <div class="mono" style="font-size: 0.74rem; color: var(--muted);">@{{ req.requester.username }} · {{ req.requester.profile.gamer_tag|default:'#FAZ' }}</div>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <span class="badge badge-emerald">{{ f.status|title }}</span>
+            <div style="display: flex; align-items: center; gap: 0.45rem;">
+                <form method="POST" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="accept">
+                    <input type="hidden" name="friendship_id" value="{{ req.id }}">
+                    <button type="submit" class="btn btn-sm">Accept</button>
+                </form>
+                <form method="POST" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="decline">
+                    <input type="hidden" name="friendship_id" value="{{ req.id }}">
+                    <button type="submit" class="btn btn-secondary btn-sm">Decline</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if outgoing_requests %}
+        <h4 class="crew-subhead" style="margin-top: 1.15rem;">Pending Sent ({{ outgoing_requests|length }})</h4>
+        {% for req in outgoing_requests %}
+        <div class="list-row">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="av av-md av-{{ req.addressee.profile.avatar|default:'freddy' }}">
+                    {% if req.addressee.profile.avatar == 'bonnie' %}BB
+                    {% elif req.addressee.profile.avatar == 'chica' %}CC
+                    {% elif req.addressee.profile.avatar == 'foxy' %}FX
+                    {% elif req.addressee.profile.avatar == 'golden_freddy' %}GF
+                    {% elif req.addressee.profile.avatar == 'puppet' %}TP
+                    {% else %}FF{% endif %}
+                </span>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.93rem;">{{ req.addressee.profile.display_name|default:req.addressee.username }}</div>
+                    <div class="mono" style="font-size: 0.74rem; color: var(--muted);">@{{ req.addressee.username }} · Pending</div>
+                </div>
+            </div>
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cancel">
+                <input type="hidden" name="friendship_id" value="{{ req.id }}">
+                <button type="submit" class="btn btn-secondary btn-sm">Cancel</button>
+            </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <h4 class="crew-subhead" style="margin-top: 1.15rem;">Your Crew Roster</h4>
+
+        {% for member in crew_members %}
+        <div class="list-row" style="flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="av av-md av-{{ member.profile.avatar|default:'freddy' }}">
+                    {% if member.profile.avatar == 'bonnie' %}BB
+                    {% elif member.profile.avatar == 'chica' %}CC
+                    {% elif member.profile.avatar == 'foxy' %}FX
+                    {% elif member.profile.avatar == 'golden_freddy' %}GF
+                    {% elif member.profile.avatar == 'puppet' %}TP
+                    {% else %}FF{% endif %}
+                </span>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.93rem;">{{ member.profile.display_name|default:member.user.username }}</div>
+                    <div class="mono" style="font-size: 0.74rem; color: var(--muted);">
+                        @{{ member.user.username }} · {{ member.profile.gamer_tag }}
+                        {% if member.show_online %} · Online{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                {% if member.in_my_party %}
+                    <span class="badge badge-emerald">In Your Party</span>
+                {% else %}
+                    {% if member.invite_pending %}
+                        <span class="badge badge-muted">Invited</span>
+                    {% else %}
+                        <form method="POST" style="margin: 0;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="invite_to_party">
+                            <input type="hidden" name="target_user_id" value="{{ member.user.id }}">
+                            <button type="submit" class="btn btn-sm">Invite to Party</button>
+                        </form>
+                    {% endif %}
+                    {% if member.friend_room %}
+                        <form method="POST" style="margin: 0;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="join_crew_party">
+                            <input type="hidden" name="room_code" value="{{ member.friend_room.room_code }}">
+                            <button type="submit" class="btn btn-secondary btn-sm">Join #{{ member.friend_room.room_code }}</button>
+                        </form>
+                    {% endif %}
+                {% endif %}
                 <form method="POST" style="margin: 0;">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="remove">
-                    <input type="hidden" name="friendship_id" value="{{ f.id }}">
+                    <input type="hidden" name="friendship_id" value="{{ member.friendship_id }}">
                     <button type="submit" class="btn btn-secondary btn-sm" title="Remove">Remove</button>
                 </form>
             </div>
         </div>
         {% empty %}
         <p style="color: var(--text-soft); text-align: center; padding: 1.75rem 0.5rem; font-size: 0.9rem;">
-            No crew members added yet. Invite a friend by username above!
+            No crew members yet. Invite a friend by username or #FAZ tag above!
         </p>
         {% endfor %}
     </section>
 
     <section class="card">
         <div class="card-header-row">
-            <h3>Top Arcade Leaderboard</h3>
-            <span class="badge">Top {{ leaderboard|length }}</span>
+            <h3>Arcade Leaderboard</h3>
+            <div style="display: flex; gap: 0.35rem;">
+                <a href="{% url 'friends' %}?scope=global" class="switcher-pill {% if board_scope == 'global' %}active{% endif %}">Global</a>
+                <a href="{% url 'friends' %}?scope=crew" class="switcher-pill {% if board_scope == 'crew' %}active{% endif %}">Crew</a>
+            </div>
         </div>
 
         {% for p in leaderboard %}
@@ -86,7 +230,9 @@
                         {{ p.display_name|default:p.user.username }}
                         {% if p.user_id == user.id %}<span class="badge" style="margin-left: 0.35rem;">You</span>{% endif %}
                     </div>
-                    <div class="mono" style="font-size: 0.74rem; color: var(--muted);">{{ p.gamer_tag }}</div>
+                    <div class="mono" style="font-size: 0.74rem; color: var(--muted);">
+                        {{ p.gamer_tag }} · {{ p.total_score|default:0 }} total pts
+                    </div>
                 </div>
             </div>
             <span class="badge">{{ p.wins }}W / {{ p.games_played }}M</span>

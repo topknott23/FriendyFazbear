@@ -1,9 +1,9 @@
-from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.contrib import messages
+from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
-from apps.core.models import Profile, UserSettings
+from apps.core.services import ensure_user_records
 
 
 def login_view(request):
@@ -18,7 +18,6 @@ def login_view(request):
 
         user = authenticate(request, username=identifier, password=password)
         if user is None and identifier:
-            # Allow signing in with email address or case-insensitive username
             matched_user = (
                 User.objects.filter(email__iexact=identifier).first()
                 or User.objects.filter(username__iexact=identifier).first()
@@ -27,11 +26,7 @@ def login_view(request):
                 user = authenticate(request, username=matched_user.username, password=password)
 
         if user is not None:
-            Profile.objects.get_or_create(
-                user=user,
-                defaults={'display_name': user.username, 'gamer_tag': f'#FAZ-{user.id:02d}'},
-            )
-            UserSettings.objects.get_or_create(user=user)
+            ensure_user_records(user)
             login(request, user)
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
                 return redirect(next_url)
@@ -43,6 +38,7 @@ def login_view(request):
 
 
 def logout_view(request):
-    logout(request)
-    messages.success(request, 'You have been signed out safely.')
+    if request.user.is_authenticated:
+        logout(request)
+        messages.success(request, 'You have been signed out safely.')
     return redirect('login')

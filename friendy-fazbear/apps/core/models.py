@@ -1,7 +1,4 @@
 from django.db import models
-
-# Create your models here.
-from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -46,7 +43,7 @@ class UserSettings(models.Model):
         ('dark', 'Fazbear Dark'),
         ('neon', 'Neon Cyberpunk'),
         ('arcade', 'Retro 80s Arcade'),
-        ('midnight', 'Midnight Purple'),
+        ('midnight', 'Midnight Emerald'),
     ]
     PRIVACY_CHOICES = [
         ('public', 'Public'),
@@ -156,6 +153,7 @@ class RoomPlayer(models.Model):
 
     class Meta:
         db_table = 'room_player'
+        unique_together = ('room', 'slot_number')
 
     def __str__(self):
         return f"{self.player_alias} in Room {self.room.room_code} (Slot {self.slot_number})"
@@ -176,6 +174,7 @@ class GameMatch(models.Model):
     winner_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='matches_won')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ongoing')
     duration_seconds = models.IntegerField(default=0)
+    round_start_at = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(auto_now_add=True)
     ended_at = models.DateTimeField(null=True, blank=True)
 
@@ -203,9 +202,39 @@ class MatchScore(models.Model):
         return f"{self.user.username}: {self.score} pts (Rank #{self.rank_placement})"
 
 
+# ==========================================
+# 9. PARTY INVITE MODEL
+# ==========================================
+class PartyInvite(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+    ]
+
+    room = models.ForeignKey(GameRoom, on_delete=models.CASCADE, related_name='party_invites')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='party_invites_sent')
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='party_invites_received')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'party_invite'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.sender.username} invited {self.recipient.username} to Room {self.room.room_code} ({self.status})"
+
+
 
 @receiver(post_save, sender=User)
 def create_user_records(sender, instance, created, **kwargs):
     if created:
-        Profile.objects.get_or_create(user=instance, defaults={'display_name': instance.username})
+        Profile.objects.get_or_create(
+            user=instance,
+            defaults={
+                'display_name': instance.username,
+                'gamer_tag': f'#FAZ-{instance.id:02d}',
+            },
+        )
         UserSettings.objects.get_or_create(user=instance)

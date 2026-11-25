@@ -8,8 +8,9 @@
         <span class="badge badge-emerald"><span class="dot-live"></span> Multiplayer Lobby Online</span>
         <h1>Welcome back, {{ profile.display_name|default:user.username }}!</h1>
         <div class="hero-sub">
-            <span>Host: <strong>{{ user.username }}</strong></span>
+            <span>Host: <strong>{{ room.host_user.username }}</strong></span>
             <span class="badge badge-purple">{{ profile.gamer_tag }}</span>
+            <span class="badge badge-muted">{{ host_privacy }}</span>
             <span>Favorite: <strong>{{ profile.favorite_game }}</strong></span>
         </div>
     </div>
@@ -30,18 +31,28 @@
     </div>
 </section>
 
+{% if not is_host %}
+<div class="party-banner">
+    <span class="badge"><span class="dot-live"></span> Party Member</span>
+    <span>
+        You're in <strong>{{ room.host_user.username }}</strong>'s party (Room #{{ room.room_code }}).
+        Only the host can choose a game — as soon as they launch one, your screen will join the Arena automatically!
+    </span>
+</div>
+{% endif %}
+
 <!-- Room Code + Controller Slots -->
-<section class="grid-lobby">
+<section class="grid-lobby" data-room-poll="{% url 'room_status_api' room.room_code %}" data-is-host="{% if is_host %}1{% else %}0{% endif %}">
     <div class="card room-box">
         <div>
-            <span class="badge">Active Room Code</span>
+            <span class="badge">{% if is_host %}Hosting Room Code{% else %}Joined Party Room{% endif %}</span>
             <div class="digit-row" aria-label="Room code {{ room.room_code }}">
                 {% for digit in room.room_code %}
                 <span class="digit-tile">{{ digit }}</span>
                 {% endfor %}
             </div>
             <p style="color: var(--text-soft); font-size: 0.86rem;">
-                Share this 4-digit room code with local players to pair their controllers.
+                Share this 4-digit room code, invite crew members, or send the pairing link to sync up to {{ room.max_players }} players.
             </p>
         </div>
 
@@ -49,71 +60,97 @@
             <button type="button" id="copyRoomCodeBtn" class="btn btn-sm" data-code="{{ room.room_code }}">
                 <span>Copy Code</span>
             </button>
+            <button type="button" id="copyJoinLinkBtn" class="btn btn-secondary btn-sm" data-url="{{ join_url }}">
+                <span>Copy Pair Link</span>
+            </button>
+            {% if is_host %}
+            <a href="{% url 'friends' %}" class="btn btn-secondary btn-sm">Invite Crew</a>
             <form method="POST" style="margin: 0;">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-secondary btn-sm">New Room Code</button>
+                <input type="hidden" name="action" value="new_room">
+                <button type="submit" class="btn btn-secondary btn-sm">New Code</button>
             </form>
+            {% else %}
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="leave_room">
+                <button type="submit" class="btn btn-secondary btn-sm">Leave Party</button>
+            </form>
+            {% endif %}
         </div>
+
+        <form method="POST" class="join-inline-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="join_room">
+            <input type="text" name="room_code" maxlength="6" placeholder="Join room # (e.g. 8194)" aria-label="Enter room code to join" required>
+            <button type="submit" class="btn btn-secondary btn-sm">Join</button>
+        </form>
     </div>
 
     <div class="card">
         <div class="card-header-row">
-            <h3>Connected Controllers</h3>
-            <span class="badge badge-muted">{{ players.count }} / {{ room.max_players }} Slots</span>
+            <h3>Connected Party &amp; Controllers</h3>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span class="badge badge-muted" id="slotCountBadge">{{ players|length }} / {{ room.max_players }} Slots</span>
+                {% if current_seat %}
+                <form method="POST" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_ready">
+                    <button type="submit" class="btn btn-secondary btn-sm">
+                        {% if current_seat.is_ready %}Set Standby{% else %}Ready Up{% endif %}
+                    </button>
+                </form>
+                {% endif %}
+                {% if is_host and players|length < room.max_players %}
+                <form method="POST" style="margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_local_player">
+                    <button type="submit" class="btn btn-sm">+ Local Pad</button>
+                </form>
+                {% endif %}
+            </div>
         </div>
 
-        <div class="slots-grid">
-            {% for p in players %}
-            <div class="slot-card active">
-                <div class="slot-head">
-                    <span class="slot-pill">P{{ p.slot_number }}</span>
-                    <span class="badge badge-emerald">Ready</span>
+        <div class="slots-grid" id="lobbySlotsGrid">
+            {% for slot in slots %}
+                {% if slot.player %}
+                <div class="slot-card active">
+                    <div class="slot-head">
+                        <span class="slot-pill">P{{ slot.slot_number }}</span>
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <span class="badge {% if slot.player.is_ready %}badge-emerald{% else %}badge-muted{% endif %}">
+                                {% if slot.player.is_ready %}Ready{% else %}Standby{% endif %}
+                            </span>
+                            {% if is_host and slot.player.user_id != room.host_user_id %}
+                            <form method="POST" style="margin: 0;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="kick_player">
+                                <input type="hidden" name="player_id" value="{{ slot.player.id }}">
+                                <button type="submit" class="slot-kick-btn" title="Disconnect controller" aria-label="Disconnect {{ slot.player.player_alias }}">&times;</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="slot-name">
+                            {{ slot.player.player_alias }}{% if slot.player.user_id == room.host_user_id %} (Host){% endif %}
+                        </div>
+                        <div class="slot-meta">{{ slot.player.device_identifier }}</div>
+                    </div>
                 </div>
-                <div>
-                    <div class="slot-name">{{ p.player_alias }}{% if p.slot_number == 1 %} (Host){% endif %}</div>
-                    <div class="slot-meta">{{ p.device_identifier }}</div>
+                {% else %}
+                <div class="slot-card empty">
+                    <div class="slot-head">
+                        <span class="slot-pill">P{{ slot.slot_number }}</span>
+                        <span class="badge badge-muted">Waiting</span>
+                    </div>
+                    <div>
+                        <div class="slot-name" style="color: var(--muted);">Open Slot</div>
+                        <div class="slot-meta">Invite Crew or pair /join/{{ room.room_code }}/</div>
+                    </div>
                 </div>
-            </div>
+                {% endif %}
             {% endfor %}
-
-            {% with filled=players.count %}
-            {% if filled < 2 %}
-            <div class="slot-card empty">
-                <div class="slot-head">
-                    <span class="slot-pill">P2</span>
-                    <span class="badge badge-muted">Waiting</span>
-                </div>
-                <div>
-                    <div class="slot-name" style="color: var(--muted);">Open Slot</div>
-                    <div class="slot-meta">Join with #{{ room.room_code }}</div>
-                </div>
-            </div>
-            {% endif %}
-            {% if filled < 3 %}
-            <div class="slot-card empty">
-                <div class="slot-head">
-                    <span class="slot-pill">P3</span>
-                    <span class="badge badge-muted">Waiting</span>
-                </div>
-                <div>
-                    <div class="slot-name" style="color: var(--muted);">Open Slot</div>
-                    <div class="slot-meta">Join with #{{ room.room_code }}</div>
-                </div>
-            </div>
-            {% endif %}
-            {% if filled < 4 %}
-            <div class="slot-card empty">
-                <div class="slot-head">
-                    <span class="slot-pill">P4</span>
-                    <span class="badge badge-muted">Waiting</span>
-                </div>
-                <div>
-                    <div class="slot-name" style="color: var(--muted);">Open Slot</div>
-                    <div class="slot-meta">Join with #{{ room.room_code }}</div>
-                </div>
-            </div>
-            {% endif %}
-            {% endwith %}
         </div>
     </div>
 </section>
@@ -121,7 +158,11 @@
 <!-- Mini-Games Grid -->
 <div class="section-bar">
     <h2>Arcade Mini-Games</h2>
-    <span class="badge badge-purple">{{ games.count }} Modes Available</span>
+    {% if is_host %}
+    <span class="badge badge-purple">{{ games.count }} Modes · Host Picks Game</span>
+    {% else %}
+    <span class="badge badge-muted">Waiting for Host {{ room.host_user.username }} to Select</span>
+    {% endif %}
 </div>
 
 <section class="grid-4">
@@ -139,7 +180,20 @@
             <h3>{{ game.name }}</h3>
             <div class="game-sub">{{ game.genre }} · {{ game.min_players }}–{{ game.max_players }} Players</div>
             <p>{{ game.description }}</p>
-            <a href="{% url 'arena' %}?game={{ game.game_id }}" class="btn btn-block">Launch Arena</a>
+            {% if is_host %}
+            <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="launch_game">
+                <input type="hidden" name="game_id" value="{{ game.game_id }}">
+                <button type="submit" class="btn btn-block">
+                    {% if players|length > 1 %}Launch for Party{% else %}Launch Arena{% endif %}
+                </button>
+            </form>
+            {% else %}
+            <button type="button" class="btn btn-secondary btn-block btn-locked" disabled>
+                Host Selects Game
+            </button>
+            {% endif %}
         </div>
     </article>
     {% endfor %}
